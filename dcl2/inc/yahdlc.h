@@ -41,6 +41,12 @@ This file was modified for use in Project Deadlock (component libdeadcom). Notab
 
 #include <errno.h>
 
+/** FCS initialization value. */
+#define FCS16_INIT_VALUE 0xFFFF
+
+/** FCS value for valid frames. */
+#define FCS16_GOOD_VALUE 0xF0B8
+
 /** HDLC start/end flag sequence */
 #define YAHDLC_FLAG_SEQUENCE 0x7E
 
@@ -79,6 +85,14 @@ typedef struct {
   int dest_index;
 } yahdlc_state_t;
 
+/**
+ * Calculates a new FCS based on the current value and value of data.
+ *
+ * @param fcs Current FCS value
+ * @param value The value to be added
+ * @returns Calculated FCS value
+ */
+unsigned short fcs16(unsigned short fcs, unsigned char value);
 
 /**
  * Resets values used in yahdlc_get_data function to keep track of received buffers

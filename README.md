@@ -17,7 +17,8 @@ and contain Python bindings.
 
 DeadCom Layer 2 is a protocol based on (or inspired by) HDLC. It provides a reliable datagram
 communication between 2 devices over unreliable byte-oriented point-to-point link (such as RS232
-connection).
+connection). Its implementation is based on open-source project yahdlc with modifications for our
+use-case.
 
 
 ## dcrcp
