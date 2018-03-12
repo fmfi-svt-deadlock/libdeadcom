@@ -107,8 +107,6 @@ void yahdlc_escape_value(char value, char *dest, int *dest_index) {
 yahdlc_control_t yahdlc_get_control_type(unsigned char control) {
   yahdlc_control_t value;
 
-  // TODO U-Frames can't have sequence numbers, this impl is incorrect
-
   // Check if the frame is a S-frame (or U-frame)
   if (control & (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT)) {
     // Check if only U-frame type
@@ -117,7 +115,7 @@ yahdlc_control_t yahdlc_get_control_type(unsigned char control) {
       if ((control >> YAHDLC_CONTROL_CONN_SPECIAL_BIT) == YAHDLC_U_FRAME_CONN_CHECK) {
         value.frame = YAHDLC_FRAME_CONN;
       // Is CONN_ACK-type
-      } else if ((control >> YAHDLC_CONTROL_CONN_SPECIAL_BIT) == YAHDLC_U_FRAME_CONN_ACK_CHECK){
+  } else if ((control >> YAHDLC_CONTROL_CONN_SPECIAL_BIT) == YAHDLC_U_FRAME_CONN_ACK_CHECK) {
         value.frame = YAHDLC_FRAME_CONN_ACK;
       // Is DISCONNECT-type
       } else {
@@ -132,12 +130,11 @@ yahdlc_control_t yahdlc_get_control_type(unsigned char control) {
         // Assume it is an NACK since Receive Not Ready, Selective Reject and U-frames are not supported
         value.frame = YAHDLC_FRAME_NACK;
       }
+      // Add the receive sequence number from the S-frame
+      value.seq_no = (control >> YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
     }
-
-    // Add the receive sequence number from the S-frame (or U-frame)
-    value.seq_no = (control >> YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
   } else {
-    // It must be an I-frame so add the send sequence number (receive sequence number is not used)
+    // It must be an I-frame so add the send sequence number
     value.frame = YAHDLC_FRAME_DATA;
     value.seq_no = (control >> YAHDLC_CONTROL_SEND_SEQ_NO_BIT);
   }
