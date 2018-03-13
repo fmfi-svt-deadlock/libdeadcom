@@ -18,6 +18,9 @@
 #include "stdbool.h"
 #include "yahdlc.h"
 
+
+#define DEADCOM_CONN_TIMEOUT_MS  100
+
 typedef enum {
     DC_DISCONNECTED,
     DC_CONNECTING,
@@ -127,14 +130,20 @@ DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *mutex_p, void *condvar_p,
 /**
  * Try to establish a connection.
  *
- * This function tries to establish a connection with the other station. If the link is already
- * connected this function is a no-op.
+ * This function tries to establish a connection with the other station. It sends a connection
+ * request and waits for response from the other station.
+ * If response is received in time it transitions the link to connected state.
+ * If response is not received in time it leaves the link in disconnected state.
+ *
+ * This function blocks the calling thread until the link is established or the operation times out.
  *
  * @param[in] deadcom  Instance of DeadCom link (closed or open)
  *
  * @return DC_OK  The link is now in the connected state, or previously has been in an connected
  *                state.
- *         DC_FAILURE  The other station has not responded to our request for link establishment.
+ *         DC_NOT_CONNECTED  The other station has not responded to our request for link
+ *                            establishment.
+ *         DC_FAILURE  Invalid parameters or connection attempt already in progress
  */
 DeadcomL2Result dcConnect(DeadcomL2 *deadcom);
 
