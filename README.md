@@ -9,8 +9,8 @@ Deadlock components. There are, in general, 2 categories of embedded firmwares u
   - Written in plain C, based on ChibiOS
   - Written in Python, running on some embedded Linux platform
 
-Therefore these libraries are written in plain-C with no dependencies that ChibiOS can't provide,
-and contain Python bindings.
+Therefore these libraries are written in plain-C with Python bindings. If a library is designed to
+be used in multithreaded systems it uses only features that ChibiOS can provide.
 
 
 ## dcl2
@@ -24,3 +24,4 @@ use-case.
 ## dcrcp
 
 DeadCom Reader<->Controller Protocol is an application protocol used by Reader and Controller.
+This library is designed for use with 2 threads: one receive thread and one transmit thread.

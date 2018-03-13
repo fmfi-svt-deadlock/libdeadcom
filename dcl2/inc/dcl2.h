@@ -1,11 +1,11 @@
 /**
- * @file    deadcom.h
- * @brief   Deadlock Communicator Library
+ * @file    dcl2.h
+ * @brief   DeadCom Layer 2
  *
- * This file defines interface of DeadCom. DeadCom is a library that powers communication
- * between various Deadlock components. Internally it uses protocol inspired by HDLC to establish
- * a symmetric communication channel. See docs of this repostiry for more infor on internal design
- * and protocol specification.
+ * This file defines interface of DeadCom Layer 2. DeadCom L2 is a library that provides reliable
+ * datagram communication over unreliable byte-oriented link. Internally it uses protocol inspired
+ * by HDLC to establish a symmetric communication channel. See docs of this repostiry for more info
+ * on internal design and protocol specification.
  *
  * This library is designed to be used in multithreaded systems. Details of thread safety are
  * mentioned in docs of each relevant function
@@ -15,13 +15,14 @@
 #define __DEADCOM_H
 
 #include "stdint.h"
+#include "stdbool.h"
 #include "yahdlc.h"
 
 typedef enum {
     DC_DISCONNECTED,
     DC_CONNECTING,
     DC_CONNECTED
-} DeadcomState;
+} DeadcomL2State;
 
 
 typedef enum {
@@ -29,7 +30,31 @@ typedef enum {
     DC_FAILURE,
     DC_NOT_CONNECTED,
     DC_LINK_RESET
-} DeadcomResult;
+} DeadcomL2Result;
+
+
+/**
+ * @brief Methods for operations on synchronization primitives
+ */
+typedef struct {
+    // Initialize mutex object
+    void (*mutexInit)(void *mutex_p);
+
+    // Lock the mutex
+    void (*mutexLock)(void *mutex_p);
+
+    // Unlock the mutex
+    void (*mutexUnlock)(void *mutex_p);
+
+    // Initialize conditional variable object
+    void (*condvarInit)(void *condvar_p);
+
+    // Wait on conditional variable object with timeout
+    bool (*condvarWait)(void *condvar_p, uint32_t milliseconds);
+
+    // Signal conditional variable object
+    void (*condvarSignal)(void *condvar_p);
+} DeadcomL2ThreadingVMT;
 
 
 /**
@@ -40,7 +65,7 @@ typedef enum {
  */
 typedef struct {
     // State of the communication library.
-    DeadcomState state;
+    DeadcomL2State state;
 
     // Buffer for incoming messages. Specification guarantees that the message can't be longer
     // than 256 bytes.
@@ -66,9 +91,19 @@ typedef struct {
 
     // Function for transmitting outgoing bytes
     void (*transmitBytes)(uint8_t*, uint8_t);
-} Deadcom;
 
-// ---- UPPER LAYER API ----
+    // Pointer to mutex for locking this structure
+    void *mutex_p;
+
+    // Pointer to conditional variable to wait on
+    void *condvar_p;
+
+    // Threading methods
+    DeadcomL2ThreadingVMT *t;
+} DeadcomL2;
+
+
+// ---- UPPER LAYER API (for use by Application Protocol implementation) ----
 
 /**
  * Initialize an object representing a DeadCom link.
@@ -76,11 +111,18 @@ typedef struct {
  * This function initializes an Deadcom object. It does not open a connection.
  *
  * @param deadcom  Instance of Deadcom object to be initialized
+ * @param mutex_p  Pointer to a Mutex object, uninitialized
+ * @param condvar_p  Pointer to a Conditional Variable object, uninitialized
+ * @param t  Threading VMT, methods that can operate on mutex and condvar
  * @param transmitBytes  A function this library will call when it wants to transmit some bytes.
  *                       This function should be blocking and return after all bytes were
  *                       transmitted.
+ *
+ * @return DC_OK  DeadCom Layer 2 object initialized successfully
+ *         DC_FAILURE  Invalid parameters
  */
-void dcInit(Deadcom *deadcom, void (*transmitBytes)(uint8_t*, uint8_t));
+DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *mutex_p, void *condvar_p,
+                       DeadcomL2ThreadingVMT *t, void (*transmitBytes)(uint8_t*, uint8_t));
 
 /**
  * Try to establish a connection.
@@ -94,7 +136,7 @@ void dcInit(Deadcom *deadcom, void (*transmitBytes)(uint8_t*, uint8_t));
  *                state.
  *         DC_FAILURE  The other station has not responded to our request for link establishment.
  */
-DeadcomResult dcConnect(Deadcom *deadcom);
+DeadcomL2Result dcConnect(DeadcomL2 *deadcom);
 
 /**
  * Disconnect a connected link.
@@ -107,7 +149,7 @@ DeadcomResult dcConnect(Deadcom *deadcom);
  * @return DC_OK  The link close operation will always succeed, independently of what the other
  *                station may think.
  */
-DeadcomResult dcDisconnect(Deadcom *deadcom);
+DeadcomL2Result dcDisconnect(DeadcomL2 *deadcom);
 
 /**
  * Transmit a message.
@@ -131,7 +173,7 @@ DeadcomResult dcDisconnect(Deadcom *deadcom);
  *          DC_LINK_RESET  If the tranission has failed / receiving station failed to acknowledge
  *                         the frame and the link has been reset as the result.
  */
-DeadcomResult dcSendMessage(Deadcom *deadcom, uint8_t *message, uint8_t message_len);
+DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, uint8_t *message, uint8_t message_len);
 
 /**
  * Get received message length.
@@ -143,7 +185,7 @@ DeadcomResult dcSendMessage(Deadcom *deadcom, uint8_t *message, uint8_t message_
  * @return Length of the received message in bytes, 0 if no received message is present in the
  *         buffer (because it has not been received yet, or the link is down, …).
  */
-uint8_t dcGetReceivedMsgLen(Deadcom *deadcom);
+uint8_t dcGetReceivedMsgLen(DeadcomL2 *deadcom);
 
 /**
  * Get the received message.
@@ -161,9 +203,10 @@ uint8_t dcGetReceivedMsgLen(Deadcom *deadcom);
  * @return Length of the received message which was copied to the buffer, or 0 if no message
  *         was present in the buffer.
  */
-uint8_t dcGetReceivedMsg(Deadcom *deadcom, uint8_t *buffer);
+uint8_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer);
 
-// ---- LOWER LAYER API ----
+
+// ---- LOWER LAYER API (for use by physical layer driver) ----
 
 /**
  * Pass received data to the library.
@@ -175,7 +218,7 @@ uint8_t dcGetReceivedMsg(Deadcom *deadcom, uint8_t *buffer);
  * @param[in] data  Data that were just received
  * @param[in] len  Number of received bytes
  */
-void dcFeedData(Deadcom *deadcom, uint8_t *data, uint8_t len);
+void dcFeedData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len);
 
 
 #endif

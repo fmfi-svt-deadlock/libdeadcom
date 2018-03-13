@@ -6,6 +6,7 @@ DCL2_INCLUDE  = dcl2/inc
 #
 
 UNITY         = deps/Unity/src/
+FFF           = deps/fff/
 
 TEST_BUILD    = build/test/build/
 TEST_OBJS     = build/test/objs/
@@ -18,7 +19,7 @@ TEST_CSRC     = $(shell find $(TEST_PATH) -type f -regextype sed -regex '.*-test
 TEST_TRGT       =
 TEST_CC         = $(TEST_TRGT)gcc
 TEST_LD         = $(TEST_TRGT)gcc
-TEST_INCDIR     = $(DCL2_INCLUDE)
+TEST_INCDIR     = $(FFF) $(DCL2_INCLUDE)
 TEST_INCPARAMS  = $(foreach d, $(TEST_INCDIR), -I$d)
 TEST_CFLAGS     = -I. -I$(UNITY) $(TEST_INCPARAMS) -DTEST
 
