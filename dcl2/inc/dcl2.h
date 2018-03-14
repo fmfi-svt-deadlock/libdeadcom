@@ -151,12 +151,13 @@ DeadcomL2Result dcConnect(DeadcomL2 *deadcom);
  * Disconnect a connected link.
  *
  * This function disconnects an already connected link. If the link was already in the disconnected
- * state this function is a no-op.
+ * state this function is a no-op. If the link is currently connecting, this function fails.
  *
  * @param[in] deadcom  Instance of DeadCom link (open or closed)
  *
  * @return DC_OK  The link close operation will always succeed, independently of what the other
  *                station may think.
+ *         DC_FAILURE  Attempted to disconnect currently connecting link or invalid parameters
  */
 DeadcomL2Result dcDisconnect(DeadcomL2 *deadcom);
 

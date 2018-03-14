@@ -215,3 +215,80 @@ void test_ConnectionFailWhenAlreadyConnecting() {
     TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 0);
     TEST_ASSERT_EQUAL(yahdlc_frame_data_fake.call_count, 0);
 }
+
+
+/* == Dropping connection ========================================================================*/
+
+void test_disconnectWhenDisconnected() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    // Attempt to disconnect already disconnected link
+    res = dcDisconnect(&d);
+
+    // result should be OK
+    TEST_ASSERT_EQUAL(res, DC_OK);
+    // State should be disconnected
+    TEST_ASSERT_EQUAL(d.state, DC_DISCONNECTED);
+    // Mutex should be locked / unlocked exactly once
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+}
+
+
+void test_disconnectWhenConnecting() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    // Simulate connecting link
+    d.state = DC_CONNECTING;
+
+    // Attempt to disconnect connecting link
+    res = dcDisconnect(&d);
+
+    // result should be failure
+    TEST_ASSERT_EQUAL(res, DC_FAILURE);
+    // state should be unchanged
+    TEST_ASSERT_EQUAL(d.state, DC_CONNECTING);
+    // mutex should be locked / unlocked exactly once
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+}
+
+
+void test_disconnectWhenConnected() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    // Simulate connected link
+    d.state = DC_CONNECTED;
+
+    // Attempt to disconnect already disconnected link
+    res = dcDisconnect(&d);
+
+    // result should be OK
+    TEST_ASSERT_EQUAL(res, DC_OK);
+    // State should be disconnected
+    TEST_ASSERT_EQUAL(d.state, DC_DISCONNECTED);
+    // Mutex should be locked / unlocked exactly once
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+}

@@ -73,3 +73,21 @@ DeadcomL2Result dcConnect(DeadcomL2 *deadcom) {
         return DC_OK;
     }
 }
+
+
+DeadcomL2Result dcDisconnect(DeadcomL2 *deadcom) {
+    if (deadcom == NULL) {
+        return DC_FAILURE;
+    }
+    deadcom->t->mutexLock(deadcom->mutex_p);
+
+    if (deadcom->state == DC_CONNECTING) {
+        // Cant disconnect connecting link
+        deadcom->t->mutexUnlock(deadcom->mutex_p);
+        return DC_FAILURE;
+    }
+
+    deadcom->state = DC_DISCONNECTED;
+    deadcom->t->mutexUnlock(deadcom->mutex_p);
+    return DC_OK;
+}
