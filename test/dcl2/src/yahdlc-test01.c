@@ -51,32 +51,37 @@ void test_GetDataInvalidInputs() {
 void test_DataFrameControlField() {
     int ret;
     char frame_data[8], recv_data[8];
-    unsigned int i, frame_length = 0, recv_length = 0;
+    unsigned int i, j, frame_length = 0, recv_length = 0;
     yahdlc_control_t control_send, control_recv;
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);
     // Run through the supported sequence numbers (3-bit)
     for (i = 0; i <= 7; i++) {
-      // Initialize the control field structure with frame type and sequence number
-      control_send.frame = YAHDLC_FRAME_DATA;
-      control_send.seq_no = i;
+        for (j = 0; j <= 7; j++) {
+            // Initialize the control field structure with frame type and sequence number
+            control_send.frame = YAHDLC_FRAME_DATA;
+            control_send.send_seq_no = i;
+            control_send.recv_seq_no = j;
 
-      // Create an empty frame with the control field information
-      ret = yahdlc_frame_data(&control_send, NULL, 0, frame_data, &frame_length);
-      TEST_ASSERT_EQUAL_INT(ret, 0);
+            // Create an empty frame with the control field information
+            ret = yahdlc_frame_data(&control_send, NULL, 0, frame_data, &frame_length);
+            TEST_ASSERT_EQUAL_INT(ret, 0);
 
-      // Get the data from the frame
-      ret = yahdlc_get_data(&state, &control_recv, frame_data, frame_length, recv_data,
-                            &recv_length);
+            recv_length = 0;
+            // Get the data from the frame
+            ret = yahdlc_get_data(&state, &control_recv, frame_data, frame_length, recv_data,
+                                  &recv_length);
 
-      // Result should be frame_length minus start flag to be discarded and no bytes received
-      TEST_ASSERT_EQUAL_INT(ret, ((int )frame_length - 1));
-      TEST_ASSERT_EQUAL_INT(recv_length, 0);
+            // Result should be frame_length minus start flag to be discarded and no bytes received
+            TEST_ASSERT_EQUAL_INT(ret, ((int )frame_length - 1));
+            TEST_ASSERT_EQUAL_INT(recv_length, 0);
 
-      // Verify the control field information
-      TEST_ASSERT_EQUAL_INT(control_send.frame, control_recv.frame);
-      TEST_ASSERT_EQUAL_INT(control_send.seq_no, control_recv.seq_no);
+            // Verify the control field information
+            TEST_ASSERT_EQUAL_INT(control_send.frame, control_recv.frame);
+            TEST_ASSERT_EQUAL_INT(control_send.send_seq_no, control_recv.send_seq_no);
+            TEST_ASSERT_EQUAL_INT(control_send.recv_seq_no, control_recv.recv_seq_no);
+        }
     }
 }
 
@@ -93,7 +98,7 @@ void test_AckFrameControlField() {
     for (i = 0; i <= 7; i++) {
       // Initialize the control field structure with frame type and sequence number
       control_send.frame = YAHDLC_FRAME_ACK;
-      control_send.seq_no = i;
+      control_send.recv_seq_no = i;
 
       // Create an empty frame with the control field information
       ret = yahdlc_frame_data(&control_send, NULL, 0, frame_data, &frame_length);
@@ -109,7 +114,7 @@ void test_AckFrameControlField() {
 
       // Verify the control field information
       TEST_ASSERT_EQUAL_INT(control_send.frame, control_recv.frame);
-      TEST_ASSERT_EQUAL_INT(control_send.seq_no, control_recv.seq_no);
+      TEST_ASSERT_EQUAL_INT(control_send.recv_seq_no, control_recv.recv_seq_no);
     }
 }
 
@@ -126,7 +131,7 @@ void test_NackFrameControlField() {
     for (i = 0; i <= 7; i++) {
         // Initialize the control field structure with frame type and sequence number
         control_send.frame = YAHDLC_FRAME_NACK;
-        control_send.seq_no = i;
+        control_send.recv_seq_no = i;
 
         // Create an empty frame with the control field information
         ret = yahdlc_frame_data(&control_send, NULL, 0, frame_data, &frame_length);
@@ -142,7 +147,7 @@ void test_NackFrameControlField() {
 
         // Verify the control field information
         TEST_ASSERT_EQUAL_INT(control_send.frame, control_recv.frame);
-        TEST_ASSERT_EQUAL_INT(control_send.seq_no, control_recv.seq_no);
+        TEST_ASSERT_EQUAL_INT(control_send.recv_seq_no, control_recv.recv_seq_no);
     }
 }
 
@@ -171,6 +176,8 @@ void test_0To512BytesData() {
         // Check that frame length is maximum 2 bytes larger than data due to escape of FCS value
         TEST_ASSERT(frame_length <= ((i + 6) + 2));
         TEST_ASSERT_EQUAL_INT(ret, 0);
+
+        recv_length = 0;
 
         // Get the data from the frame
         ret = yahdlc_get_data(&state, &control_recv, frame_data, frame_length, recv_data,

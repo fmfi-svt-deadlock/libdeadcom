@@ -45,8 +45,7 @@ DeadcomL2Result dcConnect(DeadcomL2 *deadcom) {
 
     // Construct a CONN frame and transmit it
     yahdlc_control_t control_connect = {
-        .frame = YAHDLC_FRAME_CONN,
-        .seq_no = 0
+        .frame = YAHDLC_FRAME_CONN
     };
     char frame_data[8];
     unsigned int frame_length;

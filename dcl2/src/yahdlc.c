@@ -29,6 +29,9 @@ This file was modified for use in Project Deadlock (component libdeadcom). Notab
   - Addition of several new HDLC frames to deal with link establishment and reset
   - Removal of the global state structure and functions dealing with it, since they won't be
     used
+  - I-frames now send N(S) and N(R) (as opposed to only N(S)) as specified by HDLC
+  - Fix frame decoding problems if control-octet transparency is applied to address byte or
+    control byte
 */
 
 #include "yahdlc.h"
@@ -115,7 +118,7 @@ yahdlc_control_t yahdlc_get_control_type(unsigned char control) {
       if ((control >> YAHDLC_CONTROL_CONN_SPECIAL_BIT) == YAHDLC_U_FRAME_CONN_CHECK) {
         value.frame = YAHDLC_FRAME_CONN;
       // Is CONN_ACK-type
-  } else if ((control >> YAHDLC_CONTROL_CONN_SPECIAL_BIT) == YAHDLC_U_FRAME_CONN_ACK_CHECK) {
+      } else if ((control >> YAHDLC_CONTROL_CONN_SPECIAL_BIT) == YAHDLC_U_FRAME_CONN_ACK_CHECK) {
         value.frame = YAHDLC_FRAME_CONN_ACK;
       // Is DISCONNECT-type
       } else {
@@ -131,12 +134,13 @@ yahdlc_control_t yahdlc_get_control_type(unsigned char control) {
         value.frame = YAHDLC_FRAME_NACK;
       }
       // Add the receive sequence number from the S-frame
-      value.seq_no = (control >> YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
+      value.recv_seq_no = (control >> YAHDLC_CONTROL_RECV_SEQ_NO_BIT) & 0x7;
     }
   } else {
     // It must be an I-frame so add the send sequence number
     value.frame = YAHDLC_FRAME_DATA;
-    value.seq_no = (control >> YAHDLC_CONTROL_SEND_SEQ_NO_BIT);
+    value.send_seq_no = (control >> YAHDLC_CONTROL_SEND_SEQ_NO_BIT) & 0x7;
+    value.recv_seq_no = (control >> YAHDLC_CONTROL_RECV_SEQ_NO_BIT) & 0x7;
   }
 
   return value;
@@ -150,17 +154,18 @@ unsigned char yahdlc_frame_control_type(yahdlc_control_t *control) {
   switch (control->frame) {
     case YAHDLC_FRAME_DATA:
       // Create the HDLC I-frame control byte with Poll bit set
-      value |= (control->seq_no << YAHDLC_CONTROL_SEND_SEQ_NO_BIT);
+      value |= (control->send_seq_no << YAHDLC_CONTROL_SEND_SEQ_NO_BIT);
+      value |= (control->recv_seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
       value |= (1 << YAHDLC_CONTROL_POLL_BIT);
       break;
     case YAHDLC_FRAME_ACK:
       // Create the HDLC Receive Ready S-frame control byte with Poll bit cleared
-      value |= (control->seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
+      value |= (control->recv_seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
       value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
       break;
     case YAHDLC_FRAME_NACK:
       // Create the HDLC Receive Ready S-frame control byte with Poll bit cleared
-      value |= (control->seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
+      value |= (control->recv_seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
       value |= (YAHDLC_CONTROL_TYPE_REJECT << YAHDLC_CONTROL_S_FRAME_TYPE_BIT);
       value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
       break;
@@ -195,6 +200,7 @@ void yahdlc_reset_state(yahdlc_state_t *state) {
   state->start_index = state->end_index = -1;
   state->src_index = state->dest_index = 0;
   state->control_escape = 0;
+  state->frame_byte_index = 0;
 }
 
 
@@ -248,13 +254,14 @@ int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const char
         // Now update the FCS value
         state->fcs = fcs16(state->fcs, value);
 
-        if (state->src_index == state->start_index + 2) {
+        if (state->frame_byte_index == 1) {
           // Control field is the second byte after the start flag sequence
           *control = yahdlc_get_control_type(value);
         } else if (state->src_index > (state->start_index + 2)) {
           // Start adding the data values after the Control field to the buffer
           dest[state->dest_index++] = value;
         }
+        state->frame_byte_index++;
       }
     }
     state->src_index++;

@@ -69,7 +69,8 @@ typedef enum {
 /** Control field information */
 typedef struct {
   yahdlc_frame_t frame;
-  unsigned char seq_no :3;
+  unsigned char send_seq_no :3;
+  unsigned char recv_seq_no :3;
 } yahdlc_control_t;
 
 /**
@@ -82,6 +83,7 @@ typedef struct {
   int start_index;
   int end_index;
   int src_index;
+  int frame_byte_index;
   int dest_index;
 } yahdlc_state_t;
 
