@@ -1,3 +1,4 @@
+#include <string.h>
 #include "unity.h"
 #include "fff.h"
 
@@ -15,6 +16,30 @@ FAKE_VOID_FUNC(condvarSignal, void*);
 
 FAKE_VALUE_FUNC(int, yahdlc_frame_data, yahdlc_control_t*, const char*, unsigned int, char*,
                 unsigned int*)
+
+/* A fake framing implementation that produces inspectable frames in the following format:
+ *
+ * +-----------------------------+-------------+--------------------------------------------+
+ * | control_structure           | message_len | message_bytes                              |
+ * | (sizeof(yahdlc_control_t))  | 4 bytes     | message_len                                |
+ * +-----------------------------+-------------+--------------------------------------------+
+ */
+int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned int data_len,
+                         char *output_frame, unsigned int *output_frame_len) {
+    // Control struct
+    memcpy(output_frame, control, sizeof(yahdlc_control_t));
+    *output_frame_len = sizeof(yahdlc_control_t);
+
+    // Message length
+    output_frame[(*output_frame_len)++] = (data_len >> 24) & 0xFF;
+    output_frame[(*output_frame_len)++] = (data_len >> 16) & 0xFF;
+    output_frame[(*output_frame_len)++] = (data_len >>  8) & 0xFF;
+    output_frame[(*output_frame_len)++] = (data_len >>  0) & 0xFF;
+
+    // The message itself
+    memcpy(output_frame+(*output_frame_len), data, data_len);
+    *output_frame_len += data_len;
+}
 
 DeadcomL2ThreadingVMT t = {
     &mutexInit,
@@ -291,4 +316,467 @@ void test_disconnectWhenConnected() {
     // Mutex should be locked / unlocked exactly once
     TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
     TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+}
+
+
+
+/* == Sending a message ==========================================================================*/
+
+void test_SendMessageInvalidParams() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(transmitBytes);
+
+    const uint8_t message[] = {0x42, 0x47};
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    res = dcSendMessage(NULL, message, sizeof(message));
+    // failed call, no locking calls, no attempt to transmit
+    TEST_ASSERT_EQUAL(res, DC_FAILURE);
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 0);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+    TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 0);
+
+    res = dcSendMessage(&d, NULL, sizeof(message));
+    // failed call, no locking calls, no attempt to transmit
+    TEST_ASSERT_EQUAL(res, DC_FAILURE);
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 0);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+    TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 0);
+
+    res = dcSendMessage(&d, message, 0);
+    // failed call, no locking calls, no attempt to transmit
+    TEST_ASSERT_EQUAL(res, DC_FAILURE);
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 0);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+    TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 0);
+
+    res = dcSendMessage(NULL, message, DEADCOM_PAYLOAD_MAX_LEN+1);
+    // failed call, no locking calls, no attempt to transmit
+    TEST_ASSERT_EQUAL(res, DC_FAILURE);
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 0);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+    TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 0);
+}
+
+
+void test_SendMessageInvalidState() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(transmitBytes);
+
+    const uint8_t message[] = {0x42, 0x47};
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    // Disconnected state
+    res = dcSendMessage(&d, message, sizeof(message));
+    // failed call, one of each locking calls, no attempt to transmit
+    TEST_ASSERT_EQUAL(res, DC_NOT_CONNECTED);
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 0);
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+
+    d.state = DC_CONNECTING;
+    // Connecting state
+    res = dcSendMessage(&d, message, sizeof(message));
+    // failed call, one of each locking calls, no attempt to transmit
+    TEST_ASSERT_EQUAL(res, DC_NOT_CONNECTED);
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 0);
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+
+    d.state = DC_TRANSMITTING;
+    // Connected but transmitting
+    res = dcSendMessage(&d, message, sizeof(message));
+    // failed call, one of each locking calls, no attempt to transmit
+    TEST_ASSERT_EQUAL(res, DC_FAILURE);
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 0);
+}
+
+
+void test_SendMessageWithAcknowledgment() {
+    DeadcomL2 d;
+
+    unsigned int sseq, rseq;
+    for (sseq = 0; sseq <= 7; sseq++) {
+        for (rseq = 0; rseq <= 7; rseq++) {
+            RESET_FAKE(mutexLock);
+            RESET_FAKE(mutexUnlock);
+            RESET_FAKE(condvarWait);
+            RESET_FAKE(transmitBytes);
+            RESET_FAKE(yahdlc_frame_data)
+            yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+            const uint8_t message[] = {0x42, 0x47};
+
+            bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+                // Fake implementation of condvarWait function.
+                // This function should be called after the message is transmitted.
+                // The mutex should be locked
+                TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+                TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+                // Bytes should have been transmitted
+                TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 1);
+                // Library status should be 'transmitting'
+                TEST_ASSERT_EQUAL(d.state, DC_TRANSMITTING);
+
+                // Verify that proper message has been transmitted
+                uint8_t *txed_bytes = transmitBytes_fake.arg0_val;
+                unsigned int num_txed_bytes = transmitBytes_fake.arg1_val;
+
+                // Verify that this is a DATA frame with correct sequence numbers
+                TEST_ASSERT_EQUAL(((yahdlc_control_t*)txed_bytes)->frame, YAHDLC_FRAME_DATA);
+                TEST_ASSERT_EQUAL(((yahdlc_control_t*)txed_bytes)->send_seq_no, sseq);
+                TEST_ASSERT_EQUAL(((yahdlc_control_t*)txed_bytes)->recv_seq_no, rseq);
+
+                // Verify that we've sent 2 bytes
+                TEST_ASSERT_EQUAL(txed_bytes[sizeof(yahdlc_control_t)+3], 2);
+                // Verify that we've sent the correct message
+                TEST_ASSERT_EQUAL_MEMORY((txed_bytes + sizeof(yahdlc_control_t) + 4), message, 2);
+
+                // The other station acknowledged
+                d.last_response = DC_RESP_OK;
+                return true;
+            }
+            condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
+
+            // Initialize the lib
+            DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+            TEST_ASSERT_EQUAL(res, DC_OK);
+
+            // Simulate connected state
+            d.state = DC_CONNECTED;
+            d.send_number = sseq;
+            d.last_acked  = sseq;
+            d.recv_number = rseq;
+
+            res = dcSendMessage(&d, message, sizeof(message));
+            // Transmission should be successful
+            TEST_ASSERT_EQUAL(res, DC_OK);
+            // Mutex should have been locked and unlocked exactly once
+            TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+            TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+            // We should have waited on condition variable exactly once
+            TEST_ASSERT_EQUAL(condvarWait_fake.call_count, 1);
+            // Library status should be 'connected'
+            TEST_ASSERT_EQUAL(d.state, DC_CONNECTED);
+        }
+    }
+}
+
+
+void test_SendMessageWhenNacked() {
+    DeadcomL2 d;
+
+    unsigned int nack_number;
+    for (nack_number = 1; nack_number < DEADCOM_MAX_FAILURE_COUNT; nack_number++) {
+        RESET_FAKE(mutexLock);
+        RESET_FAKE(mutexUnlock);
+        RESET_FAKE(condvarWait);
+        RESET_FAKE(transmitBytes);
+        RESET_FAKE(yahdlc_frame_data)
+        yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+        const uint8_t message[] = {0x42, 0x47};
+
+        unsigned int nacked_times = 0;
+        bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+            // Fake implementation of condvarWait function.
+            // This function should be called after the message is transmitted.
+            // The mutex should be locked
+            TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+            TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+            // Bytes should have been transmitted
+            TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, (nacked_times+1));
+            // Library status should be 'transmitting'
+            TEST_ASSERT_EQUAL(d.state, DC_TRANSMITTING);
+
+            // Verify that proper message has been transmitted
+            uint8_t *txed_bytes = transmitBytes_fake.arg0_val;
+            unsigned int num_txed_bytes = transmitBytes_fake.arg1_val;
+
+            // Verify that this is a DATA frame with correct sequence numbers
+            TEST_ASSERT_EQUAL(((yahdlc_control_t*)txed_bytes)->frame, YAHDLC_FRAME_DATA);
+            TEST_ASSERT_EQUAL(((yahdlc_control_t*)txed_bytes)->send_seq_no, 0);
+            TEST_ASSERT_EQUAL(((yahdlc_control_t*)txed_bytes)->recv_seq_no, 0);
+
+            // Verify that we've sent 2 bytes
+            TEST_ASSERT_EQUAL(txed_bytes[sizeof(yahdlc_control_t)+3], 2);
+            // Verify that we've sent the correct message
+            TEST_ASSERT_EQUAL_MEMORY((txed_bytes + sizeof(yahdlc_control_t) + 4), message, 2);
+
+            if (nacked_times == nack_number) {
+                d.last_response = DC_RESP_OK;
+            } else {
+                d.last_response = DC_RESP_REJECT;
+                nacked_times++;
+            }
+            return true;
+        }
+        condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
+
+        // Initialize the lib
+        DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+        TEST_ASSERT_EQUAL(res, DC_OK);
+
+        // Simulate connected state
+        d.state = DC_CONNECTED;
+
+        res = dcSendMessage(&d, message, sizeof(message));
+        // Transmission should be successful
+        TEST_ASSERT_EQUAL(res, DC_OK);
+        // Mutex should have been locked and unlocked exactly once
+        TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+        TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+        // We should have waited on condition variable after each nack and once more for good send
+        TEST_ASSERT_EQUAL(condvarWait_fake.call_count, (nack_number+1));
+        // Library status should be 'connected'
+        TEST_ASSERT_EQUAL(d.state, DC_CONNECTED);
+    }
+}
+
+
+void test_SendMessageWhenTimeout() {
+    DeadcomL2 d;
+
+    unsigned int timeout_number;
+    for (timeout_number = 1; timeout_number < DEADCOM_MAX_FAILURE_COUNT; timeout_number++) {
+        RESET_FAKE(mutexLock);
+        RESET_FAKE(mutexUnlock);
+        RESET_FAKE(condvarWait);
+        RESET_FAKE(transmitBytes);
+        RESET_FAKE(yahdlc_frame_data)
+        yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+        const uint8_t message[] = {0x42, 0x47};
+
+        unsigned int timeout_times = 0;
+        bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+            // Fake implementation of condvarWait function.
+            // This function should be called after the message is transmitted.
+            // The mutex should be locked
+            TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+            TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+            // Bytes should have been transmitted
+            TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, (timeout_times+1));
+            // Library status should be 'transmitting'
+            TEST_ASSERT_EQUAL(d.state, DC_TRANSMITTING);
+
+            // Verify that proper message has been transmitted
+            uint8_t *txed_bytes = transmitBytes_fake.arg0_val;
+            unsigned int num_txed_bytes = transmitBytes_fake.arg1_val;
+
+            // Verify that this is a DATA frame with correct sequence numbers
+            TEST_ASSERT_EQUAL(((yahdlc_control_t*)txed_bytes)->frame, YAHDLC_FRAME_DATA);
+            TEST_ASSERT_EQUAL(((yahdlc_control_t*)txed_bytes)->send_seq_no, 0);
+            TEST_ASSERT_EQUAL(((yahdlc_control_t*)txed_bytes)->recv_seq_no, 0);
+
+            // Verify that we've sent 2 bytes
+            TEST_ASSERT_EQUAL(txed_bytes[sizeof(yahdlc_control_t)+3], 2);
+            // Verify that we've sent the correct message
+            TEST_ASSERT_EQUAL_MEMORY((txed_bytes + sizeof(yahdlc_control_t) + 4), message, 2);
+
+            if (timeout_times == timeout_number) {
+                d.last_response = DC_RESP_OK;
+                return true;
+            } else {
+                timeout_times++;
+            }
+            return false;
+        }
+        condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
+
+        // Initialize the lib
+        DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+        TEST_ASSERT_EQUAL(res, DC_OK);
+
+        // Simulate connected state
+        d.state = DC_CONNECTED;
+
+        res = dcSendMessage(&d, message, sizeof(message));
+        // Transmission should be successful
+        TEST_ASSERT_EQUAL(res, DC_OK);
+        // Mutex should have been locked and unlocked exactly once
+        TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+        TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+        // We should have waited on condition variable after each nack and once more for good send
+        TEST_ASSERT_EQUAL(condvarWait_fake.call_count, (timeout_number+1));
+        // Library status should be 'connected'
+        TEST_ASSERT_EQUAL(d.state, DC_CONNECTED);
+    }
+}
+
+
+void test_SendMessageFailTooManyNacks() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(condvarWait);
+    RESET_FAKE(transmitBytes);
+    RESET_FAKE(yahdlc_frame_data)
+    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+    const uint8_t message[] = {0x42, 0x47};
+
+    unsigned int timeout_times = 0;
+    bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+        // Fake implementation of condvarWait function.
+        // This function should be called after the message is transmitted.
+        // The mutex should be locked
+        TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+        TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+        // Bytes should have been transmitted
+        TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, (timeout_times+1));
+        // Library status should be 'transmitting'
+        TEST_ASSERT_EQUAL(d.state, DC_TRANSMITTING);
+
+        if (timeout_times >= DEADCOM_MAX_FAILURE_COUNT) {
+            // At this point the send function should have given up and we shouldn't be here
+            d.last_response = DC_RESP_OK;
+            TEST_FAIL();
+        } else {
+            d.last_response = DC_RESP_REJECT;
+            timeout_times++;
+        }
+        return true;
+    }
+    condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    // Simulate connected state
+    d.state = DC_CONNECTED;
+
+    res = dcSendMessage(&d, message, sizeof(message));
+    // Transmission should fail with link reset error
+    TEST_ASSERT_EQUAL(res, DC_LINK_RESET);
+    // Mutex should have been locked and unlocked exactly once
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(condvarWait_fake.call_count, DEADCOM_MAX_FAILURE_COUNT);
+    // Library status should be 'disconnected'
+    TEST_ASSERT_EQUAL(d.state, DC_DISCONNECTED);
+}
+
+
+void test_SendMessageFailTooManyTimeouts() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(condvarWait);
+    RESET_FAKE(transmitBytes);
+    RESET_FAKE(yahdlc_frame_data)
+    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+    const uint8_t message[] = {0x42, 0x47};
+
+    unsigned int timeout_times = 0;
+    bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+        // Fake implementation of condvarWait function.
+        // This function should be called after the message is transmitted.
+        // The mutex should be locked
+        TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+        TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+        // Bytes should have been transmitted
+        TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, (timeout_times+1));
+        // Library status should be 'transmitting'
+        TEST_ASSERT_EQUAL(d.state, DC_TRANSMITTING);
+
+        if (timeout_times >= DEADCOM_MAX_FAILURE_COUNT) {
+            // At this point the send function should have given up and we shouldn't be here
+            d.last_response = DC_RESP_OK;
+            TEST_FAIL();
+            return true;
+        } else {
+            timeout_times++;
+        }
+        return false;
+    }
+    condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    // Simulate connected state
+    d.state = DC_CONNECTED;
+
+    res = dcSendMessage(&d, message, sizeof(message));
+    // Transmission should fail with link reset error
+    TEST_ASSERT_EQUAL(res, DC_LINK_RESET);
+    // Mutex should have been locked and unlocked exactly once
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(condvarWait_fake.call_count, DEADCOM_MAX_FAILURE_COUNT);
+    // Library status should be 'disconnected'
+    TEST_ASSERT_EQUAL(d.state, DC_DISCONNECTED);
+}
+
+
+void test_SendMessageOtherStationDropsLink() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(condvarWait);
+    RESET_FAKE(transmitBytes);
+    RESET_FAKE(yahdlc_frame_data)
+    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+    const uint8_t message[] = {0x42, 0x47};
+
+    bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+        // Fake implementation of condvarWait function.
+        // This function should be called after the message is transmitted.
+        // The mutex should be locked
+        TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+        TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 0);
+        // Bytes should have been transmitted
+        TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 1);
+        // Library status should be 'transmitting'
+        TEST_ASSERT_EQUAL(d.state, DC_TRANSMITTING);
+
+        d.last_response = DC_RESP_NOLINK;
+        return true;
+    }
+    condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    // Simulate connected state
+    d.state = DC_CONNECTED;
+
+    res = dcSendMessage(&d, message, sizeof(message));
+    // Transmission should fail with link reset error
+    TEST_ASSERT_EQUAL(res, DC_LINK_RESET);
+    // Mutex should have been locked and unlocked exactly once
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(condvarWait_fake.call_count, 1);
+    // Library status should be 'disconnected'
+    TEST_ASSERT_EQUAL(d.state, DC_DISCONNECTED);
 }

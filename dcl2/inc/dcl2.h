@@ -19,13 +19,28 @@
 #include "yahdlc.h"
 
 
-#define DEADCOM_CONN_TIMEOUT_MS  100
+#define DEADCOM_CONN_TIMEOUT_MS    100
+#define DEADCOM_ACK_TIMEOUT_MS     100
+#define DEADCOM_PAYLOAD_MAX_LEN    249
+#define DEADCOM_MAX_FAILURE_COUNT  3
+
+// Max frame length is 2 for start and end frame flags + 4 for escaped FCS (worst-case) +
+// 4 for escaped address and control byte (worst case) + 2*MAX_PAYLOAD for escaped payload
+#define DEADCOM_MAX_FRAME_LEN ((DEADCOM_PAYLOAD_MAX_LEN*2)+10)
 
 typedef enum {
     DC_DISCONNECTED,
     DC_CONNECTING,
-    DC_CONNECTED
+    DC_CONNECTED,
+    DC_TRANSMITTING
 } DeadcomL2State;
+
+
+typedef enum {
+    DC_RESP_OK,
+    DC_RESP_REJECT,
+    DC_RESP_NOLINK
+} DeadcomL2LastResponse;
 
 
 typedef enum {
@@ -70,12 +85,11 @@ typedef struct {
     // State of the communication library.
     DeadcomL2State state;
 
-    // Buffer for incoming messages. Specification guarantees that the message can't be longer
-    // than 256 bytes.
-    uint8_t messageBuffer[256];
+    // Buffer for incoming messages
+    uint8_t messageBuffer[DEADCOM_MAX_FRAME_LEN];
 
     // Buffer for extracted data.
-    uint8_t extractionBuffer[256];
+    uint8_t extractionBuffer[DEADCOM_PAYLOAD_MAX_LEN];
 
     // State of the underlying yahdlc library
     yahdlc_state_t yahdlc_state;
@@ -91,6 +105,9 @@ typedef struct {
 
     // Number of consectutive communication failures
     uint8_t failure_count;
+
+    // Last response received to some packet we have sent
+    DeadcomL2LastResponse last_response;
 
     // Function for transmitting outgoing bytes
     void (*transmitBytes)(uint8_t*, uint8_t);
@@ -182,8 +199,10 @@ DeadcomL2Result dcDisconnect(DeadcomL2 *deadcom);
  *          DC_NOT_CONNECTED  If the link is not in the connected state
  *          DC_LINK_RESET  If the tranission has failed / receiving station failed to acknowledge
  *                         the frame and the link has been reset as the result.
+ *          DC_FAILURE  Incorrect parameters or message too long
  */
-DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, uint8_t *message, uint8_t message_len);
+DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, const uint8_t *message,
+                              const uint8_t message_len);
 
 /**
  * Get received message length.
