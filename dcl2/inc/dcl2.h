@@ -50,6 +50,9 @@ typedef enum {
     DC_LINK_RESET
 } DeadcomL2Result;
 
+#define DC_E_NOMSG  -1
+#define DC_E_FAIL   -2
+
 
 /**
  * @brief Methods for operations on synchronization primitives
@@ -90,6 +93,9 @@ typedef struct {
 
     // Buffer for extracted data.
     uint8_t extractionBuffer[DEADCOM_PAYLOAD_MAX_LEN];
+
+    // Length of extracted data, if any.
+    int16_t extractionBufferSize;
 
     // State of the underlying yahdlc library
     yahdlc_state_t yahdlc_state;
@@ -211,10 +217,23 @@ DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, const uint8_t *message,
  *
  * @param[in] deadcom  Instance of an open DeadCom link
  *
- * @return Length of the received message in bytes, 0 if no received message is present in the
- *         buffer (because it has not been received yet, or the link is down, …).
+ * @return Length of the received message in bytes or
+ *         DC_E_NOMSG if no message is waiting or
+ *         DC_E_FAIL  if parameters are invalid
+ *
+ * @note   Since "dcGetReceivedMsg" and "dcGetReceivedMsg" are 2 different functions, one might
+ *         expect that "Time of check to time of use" race condition might occur.
+ *         This is only partialy true: if this function returns DC_E_NOMSG it means that there was
+ *         no message present at the call time.
+ *         However, by nature of this library, once dcGetReceivedMsgLen returns a valid number
+ *         of bytes (and therefore a message is received and is pending to be picked up), no other
+ *         message will be accepted and subsequent calls to dcGetReceivedMsg are guaranteed to:
+ *           - Return the received message, with length as returned by this function
+ *           - Return DC_E_NOMSG if link was reset in the meantime
+ *         In particular, this means that after dcGetReceivedMsgLen returns a number of bytes,
+ *         a buffer of that size is guaranteed to be sufficient to copy the received message.
  */
-uint8_t dcGetReceivedMsgLen(DeadcomL2 *deadcom);
+int16_t dcGetReceivedMsgLen(DeadcomL2 *deadcom);
 
 /**
  * Get the received message.
@@ -229,10 +248,11 @@ uint8_t dcGetReceivedMsgLen(DeadcomL2 *deadcom);
  *                      the whole message. Use `dcGetReceivedMsgLen` to get length of the message
  *                      in the buffer.
  *
- * @return Length of the received message which was copied to the buffer, or 0 if no message
- *         was present in the buffer.
+ * @return Length of the received message which was copied to the buffer,
+ *         DC_E_NOMSG if no data were copied because no message was present
+ *         DC_E_FAIL  if parameters are invalid
  */
-uint8_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer);
+int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer);
 
 
 // ---- LOWER LAYER API (for use by physical layer driver) ----

@@ -7,6 +7,7 @@ static void resetLink(DeadcomL2 *deadcom) {
     deadcom->last_acked = 0;
     deadcom->recv_number = 0;
     deadcom->failure_count = 0;
+    deadcom->extractionBufferSize = DC_E_NOMSG;
     deadcom->state = DC_DISCONNECTED;
 }
 
@@ -20,7 +21,7 @@ DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *_mutex_p, void *_condvar_p,
 
     // Initialize DeadcomL2 structure
     memset(deadcom, 0, sizeof(DeadcomL2));
-    deadcom->state = DC_DISCONNECTED;
+    resetLink(deadcom);
     deadcom->transmitBytes = transmitBytes;
     deadcom->mutex_p = _mutex_p;
     deadcom->condvar_p = _condvar_p;
@@ -167,4 +168,50 @@ DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom,  const uint8_t *message,
         deadcom->t->mutexUnlock(deadcom->mutex_p);
         return DC_FAILURE;
     }
+}
+
+
+int16_t dcGetReceivedMsgLen(DeadcomL2 *deadcom) {
+    if (deadcom == NULL) {
+        return DC_E_FAIL;
+    }
+
+    // Lock and unlock mutex so that we wait if someone is modifying deadcom struct
+    deadcom->t->mutexLock(deadcom->mutex_p);
+    deadcom->t->mutexUnlock(deadcom->mutex_p);
+    return deadcom->extractionBufferSize;
+}
+
+
+int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer) {
+    if (deadcom == NULL || buffer == NULL) {
+        return DC_E_FAIL;
+    }
+
+    deadcom->t->mutexLock(deadcom->mutex_p);
+
+    if (deadcom->extractionBufferSize == DC_E_NOMSG) {
+        deadcom->t->mutexUnlock(deadcom->mutex_p);
+        return DC_E_NOMSG;
+    }
+
+    memcpy(buffer, deadcom->extractionBuffer, deadcom->extractionBufferSize);
+
+    // acknowledge reception and frame processing
+    yahdlc_control_t control_ack = {
+        .frame = YAHDLC_FRAME_ACK,
+        .recv_seq_no = deadcom->recv_number
+    };
+    // Max ack frame length: start + escaped address + escaped control + 2 FCS + end + 2 reserve
+    // TODO maybe yahdlc.c should be able to do this compuation for us?
+    uint8_t ack_frame[10];
+    unsigned int ack_frame_length;
+    yahdlc_frame_data(&control_ack, NULL, 0, ack_frame, &ack_frame_length);
+    deadcom->transmitBytes(ack_frame, ack_frame_length);
+
+    int16_t copied_size = deadcom->extractionBufferSize;
+    deadcom->extractionBufferSize = DC_E_NOMSG;
+
+    deadcom->t->mutexUnlock(deadcom->mutex_p);
+    return copied_size;
 }

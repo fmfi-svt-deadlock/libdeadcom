@@ -30,15 +30,17 @@ int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned i
     memcpy(output_frame, control, sizeof(yahdlc_control_t));
     *output_frame_len = sizeof(yahdlc_control_t);
 
-    // Message length
-    output_frame[(*output_frame_len)++] = (data_len >> 24) & 0xFF;
-    output_frame[(*output_frame_len)++] = (data_len >> 16) & 0xFF;
-    output_frame[(*output_frame_len)++] = (data_len >>  8) & 0xFF;
-    output_frame[(*output_frame_len)++] = (data_len >>  0) & 0xFF;
+    if (data_len != 0) {
+        // Message length
+        output_frame[(*output_frame_len)++] = (data_len >> 24) & 0xFF;
+        output_frame[(*output_frame_len)++] = (data_len >> 16) & 0xFF;
+        output_frame[(*output_frame_len)++] = (data_len >>  8) & 0xFF;
+        output_frame[(*output_frame_len)++] = (data_len >>  0) & 0xFF;
 
-    // The message itself
-    memcpy(output_frame+(*output_frame_len), data, data_len);
-    *output_frame_len += data_len;
+        // The message itself
+        memcpy(output_frame+(*output_frame_len), data, data_len);
+        *output_frame_len += data_len;
+    }
 }
 
 DeadcomL2ThreadingVMT t = {
@@ -779,4 +781,130 @@ void test_SendMessageOtherStationDropsLink() {
     TEST_ASSERT_EQUAL(condvarWait_fake.call_count, 1);
     // Library status should be 'disconnected'
     TEST_ASSERT_EQUAL(d.state, DC_DISCONNECTED);
+}
+
+
+/* == Getting previously received message ========================================================*/
+
+void test_GetMessageLengthInvalidParams() {
+    TEST_ASSERT_EQUAL(dcGetReceivedMsgLen(NULL), DC_E_FAIL);
+}
+
+
+void test_GetMessageLengthNoMessagePending() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    TEST_ASSERT_EQUAL(dcGetReceivedMsgLen(&d), DC_E_NOMSG);
+
+    // Mutex should have been locked and unlocked
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+}
+
+
+void test_GetMessageLength() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    // Simulate that we've received a message
+    d.extractionBufferSize = 47;
+
+    TEST_ASSERT_EQUAL(dcGetReceivedMsgLen(&d), 47);
+
+    // Mutex should have been locked and unlocked
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+}
+
+
+void test_GetMessageInvalidParams() {
+    DeadcomL2 d;
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    uint8_t buffer[47];
+
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(NULL, NULL), DC_E_FAIL);
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(&d, NULL), DC_E_FAIL);
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(NULL, buffer), DC_E_FAIL);
+}
+
+
+void test_GetMessageNoMessagePending() {
+    DeadcomL2 d;
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+
+    // Initialize the lib
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(res, DC_OK);
+
+    uint8_t buffer[47];
+
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(&d, buffer), DC_E_NOMSG);
+
+    // Mutex should have been locked and unlocked
+    TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 1);
+    TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 1);
+}
+
+
+void test_GetMessage() {
+    DeadcomL2 d;
+
+    unsigned int recv;
+    for (recv = 0; recv <= 7; recv++) {
+        RESET_FAKE(mutexLock);
+        RESET_FAKE(mutexUnlock);
+        RESET_FAKE(transmitBytes);
+
+        // Initialize the lib
+        DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+        TEST_ASSERT_EQUAL(res, DC_OK);
+
+        void transmit_bytes_fake_impl(uint8_t *data, uint8_t data_len) {
+            // Nothing but send confirmation should have been sent
+            TEST_ASSERT_EQUAL(((yahdlc_control_t*)data)->frame, YAHDLC_FRAME_ACK);
+            TEST_ASSERT_EQUAL(((yahdlc_control_t*)data)->recv_seq_no, recv);
+        }
+        transmitBytes_fake.custom_fake = &transmit_bytes_fake_impl;
+
+        // Simulate that we've received a message
+        d.extractionBufferSize = 2;
+        uint8_t orig_message[] = {0x42, 0x47};
+        memcpy(d.extractionBuffer, orig_message, 2);
+        d.recv_number = recv;
+
+        int16_t received_msg_size = dcGetReceivedMsgLen(&d);
+        TEST_ASSERT_EQUAL(received_msg_size, 2);
+
+        uint8_t received_msg[received_msg_size];
+        int16_t copied_size = dcGetReceivedMsg(&d, received_msg);
+
+        TEST_ASSERT_EQUAL(copied_size, 2);
+        TEST_ASSERT_EQUAL_MEMORY(d.extractionBuffer, orig_message, 2);
+
+        // Mutex should have been locked and unlocked twice
+        TEST_ASSERT_EQUAL(mutexLock_fake.call_count, 2);
+        TEST_ASSERT_EQUAL(mutexUnlock_fake.call_count, 2);
+
+        // Acknowledgment should have been transmitted exactly once
+        TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 1);
+    }
 }
