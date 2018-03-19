@@ -58,19 +58,19 @@ This file was modified for use in Project Deadlock (component libdeadcom). Notab
 
 /** Supported HDLC frame types */
 typedef enum {
-  YAHDLC_FRAME_DATA,
-  YAHDLC_FRAME_ACK,
-  YAHDLC_FRAME_NACK,
-  YAHDLC_FRAME_CONN,
-  YAHDLC_FRAME_CONN_ACK,
-  YAHDLC_FRAME_DISCONNECTED,
+    YAHDLC_FRAME_DATA,
+    YAHDLC_FRAME_ACK,
+    YAHDLC_FRAME_NACK,
+    YAHDLC_FRAME_CONN,
+    YAHDLC_FRAME_CONN_ACK,
+    YAHDLC_FRAME_DISCONNECTED,
 } yahdlc_frame_t;
 
 /** Control field information */
 typedef struct {
-  yahdlc_frame_t frame;
-  unsigned char send_seq_no :3;
-  unsigned char recv_seq_no :3;
+    yahdlc_frame_t frame;
+    unsigned char send_seq_no :3;
+    unsigned char recv_seq_no :3;
 } yahdlc_control_t;
 
 /**
@@ -78,13 +78,13 @@ typedef struct {
  * to keep track of received buffers
  */
 typedef struct {
-  char control_escape;
-  unsigned short fcs;
-  int start_index;
-  int end_index;
-  int src_index;
-  int frame_byte_index;
-  int dest_index;
+    char control_escape;
+    unsigned short fcs;
+    int start_index;
+    int end_index;
+    int src_index;
+    int frame_byte_index;
+    int dest_index;
 } yahdlc_state_t;
 
 /**
@@ -111,6 +111,7 @@ void yahdlc_reset_state(yahdlc_state_t *state);
  * @param[in] src_len Source buffer length
  * @param[out] dest Destination buffer (should be able to contain max frame size)
  * @param[out] dest_len Destination buffer length
+ *
  * @retval >=0 Success (size of returned value should be discarded from source buffer)
  * @retval -EINVAL Invalid parameter
  * @retval -ENOMSG Invalid message
@@ -126,12 +127,14 @@ int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const char
  * @param[in] control Control field structure with frame type and sequence number
  * @param[in] src Source buffer with data
  * @param[in] src_len Source buffer length
- * @param[out] dest Destination buffer (should be bigger than source buffer)
+ * @param[out] dest Destination buffer (should be bigger than source buffer). If this buffer
+ *                  frame won't be constructed, only frame length will be computed.
  * @param[out] dest_len Destination buffer length
+ *
  * @retval 0 Success
  * @retval -EINVAL Invalid parameter
  */
-int yahdlc_frame_data(yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char *dest, unsigned int *dest_len);
+int yahdlc_frame_data(yahdlc_control_t *control, const char *src, unsigned int src_len,
+                      char *dest, unsigned int *dest_len);
 
 #endif
