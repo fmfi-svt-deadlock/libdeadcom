@@ -821,6 +821,7 @@ void test_GetMessageLength() {
 
     // Simulate that we've received a message
     d.extractionBufferSize = 47;
+    d.extractionComplete = true;
 
     TEST_ASSERT_EQUAL(dcGetReceivedMsgLen(&d), 47);
 
@@ -887,6 +888,7 @@ void test_GetMessage() {
 
         // Simulate that we've received a message
         d.extractionBufferSize = 2;
+        d.extractionComplete = true;
         uint8_t orig_message[] = {0x42, 0x47};
         memcpy(d.extractionBuffer, orig_message, 2);
         d.recv_number = recv;

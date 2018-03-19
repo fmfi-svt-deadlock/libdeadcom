@@ -88,14 +88,14 @@ typedef struct {
     // State of the communication library.
     DeadcomL2State state;
 
-    // Buffer for incoming messages
-    uint8_t messageBuffer[DEADCOM_MAX_FRAME_LEN];
-
     // Buffer for extracted data.
     uint8_t extractionBuffer[DEADCOM_PAYLOAD_MAX_LEN];
 
     // Length of extracted data, if any.
     int16_t extractionBufferSize;
+
+    // Does extractionBuffer contain the whole message or only a part of it?
+    bool extractionComplete;
 
     // State of the underlying yahdlc library
     yahdlc_state_t yahdlc_state;

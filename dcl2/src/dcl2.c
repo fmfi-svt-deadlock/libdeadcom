@@ -8,6 +8,7 @@ static void resetLink(DeadcomL2 *deadcom) {
     deadcom->recv_number = 0;
     deadcom->failure_count = 0;
     deadcom->extractionBufferSize = DC_E_NOMSG;
+    deadcom->extractionComplete = false;
     deadcom->state = DC_DISCONNECTED;
 }
 
@@ -179,7 +180,11 @@ int16_t dcGetReceivedMsgLen(DeadcomL2 *deadcom) {
     // Lock and unlock mutex so that we wait if someone is modifying deadcom struct
     deadcom->t->mutexLock(deadcom->mutex_p);
     deadcom->t->mutexUnlock(deadcom->mutex_p);
-    return deadcom->extractionBufferSize;
+    if (deadcom->extractionComplete) {
+        return deadcom->extractionBufferSize;
+    } else {
+        return DC_E_NOMSG;
+    }
 }
 
 
@@ -190,7 +195,7 @@ int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer) {
 
     deadcom->t->mutexLock(deadcom->mutex_p);
 
-    if (deadcom->extractionBufferSize == DC_E_NOMSG) {
+    if (!deadcom->extractionComplete) {
         deadcom->t->mutexUnlock(deadcom->mutex_p);
         return DC_E_NOMSG;
     }
