@@ -26,12 +26,14 @@ SOFTWARE.
 
 This file was modified for use in Project Deadlock (component libdeadcom). Notable changes:
 
-- Addition of several new HDLC frames to deal with link establishment and reset
-- Removal of the global state structure and functions dealing with it, since they won't be
-used
-- I-frames now send N(S) and N(R) (as opposed to only N(S)) as specified by HDLC
-- Fix frame decoding problems if control-octet transparency is applied to address byte or
-control byte
+  - Addition of several new HDLC frames to deal with link establishment and reset
+  - Removal of the global state structure and functions dealing with it, since they won't be
+    used
+  - I-frames now send N(S) and N(R) (as opposed to only N(S)) as specified by HDLC
+  - Fix frame decoding problems if control-octet transparency is applied to address byte or
+    control byte
+  - Calling yahdlc_frame_data with NULL destination buffer will now compute the length of required
+    buffer
 */
 
 #include "yahdlc.h"
@@ -99,12 +101,20 @@ unsigned short fcs16(unsigned short fcs, unsigned char value) {
 void yahdlc_escape_value(char value, char *dest, int *dest_index) {
     // Check and escape the value if needed
     if ((value == YAHDLC_FLAG_SEQUENCE) || (value == YAHDLC_CONTROL_ESCAPE)) {
-        dest[(*dest_index)++] = YAHDLC_CONTROL_ESCAPE;
-        value ^= 0x20;
+        if (dest) {
+            dest[(*dest_index)++] = YAHDLC_CONTROL_ESCAPE;
+            value ^= 0x20;
+        } else {
+            (*dest_index)++;
+        }
     }
 
     // Add the value to the destination buffer and increment destination index
-    dest[(*dest_index)++] = value;
+    if (dest) {
+        dest[(*dest_index)++] = value;
+    } else {
+        (*dest_index)++;
+    }
 }
 
 
@@ -304,12 +314,16 @@ int yahdlc_frame_data(yahdlc_control_t *control, const char *src,
     unsigned short fcs = FCS16_INIT_VALUE;
 
     // Make sure that all parameters are valid
-    if (!control || (!src && (src_len > 0)) || !dest || !dest_len) {
+    if (!control || (!src && (src_len > 0)) || !dest_len) {
         return -EINVAL;
     }
 
     // Start by adding the start flag sequence
-    dest[dest_index++] = YAHDLC_FLAG_SEQUENCE;
+    if (dest) {
+        dest[dest_index++] = YAHDLC_FLAG_SEQUENCE;
+    } else {
+        dest_index++;
+    }
 
     // Add the all-station address from HDLC (broadcast)
     fcs = fcs16(fcs, YAHDLC_ALL_STATION_ADDR);
@@ -339,7 +353,11 @@ int yahdlc_frame_data(yahdlc_control_t *control, const char *src,
     }
 
     // Add end flag sequence and update length of frame
-    dest[dest_index++] = YAHDLC_FLAG_SEQUENCE;
+    if (dest) {
+        dest[dest_index++] = YAHDLC_FLAG_SEQUENCE;
+    } else {
+        dest_index++;
+    }
     *dest_len = dest_index;
 
     return 0;

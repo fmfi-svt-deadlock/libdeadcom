@@ -58,9 +58,14 @@ DeadcomL2Result dcConnect(DeadcomL2 *deadcom) {
     yahdlc_control_t control_connect = {
         .frame = YAHDLC_FRAME_CONN
     };
-    char frame_data[8];
+    // Calculate frame size
     unsigned int frame_length;
+    yahdlc_frame_data(&control_connect, NULL, 0, NULL, &frame_length);
+
+    // Create the frame
+    char frame_data[frame_length];
     yahdlc_frame_data(&control_connect, NULL, 0, frame_data, &frame_length);
+
     deadcom->transmitBytes(frame_data, frame_length);
 
     // Wait on conditional variable. This condvar will be signaled once the other station has
@@ -126,9 +131,11 @@ DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom,  const uint8_t *message,
     deadcom->failure_count = 0;
     deadcom->state = DC_TRANSMITTING;
 
-    uint8_t frame[DEADCOM_MAX_FRAME_LEN];
     unsigned int frame_len;
-    if (yahdlc_frame_data(&control, message, message_len, frame, &frame_len) != -EINVAL) {
+    if (yahdlc_frame_data(&control, message, message_len, NULL, &frame_len) != -EINVAL) {
+
+        uint8_t frame[frame_len];
+        yahdlc_frame_data(&control, message, message_len, frame, &frame_len);
 
         bool transmit_success = false;
         deadcom->failure_count = 0;
@@ -207,10 +214,11 @@ int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer) {
         .frame = YAHDLC_FRAME_ACK,
         .recv_seq_no = deadcom->recv_number
     };
-    // Max ack frame length: start + escaped address + escaped control + 2 FCS + end + 2 reserve
-    // TODO maybe yahdlc.c should be able to do this compuation for us?
-    uint8_t ack_frame[10];
+
     unsigned int ack_frame_length;
+    yahdlc_frame_data(&control_ack, NULL, 0, NULL, &ack_frame_length);
+    
+    uint8_t ack_frame[ack_frame_length];
     yahdlc_frame_data(&control_ack, NULL, 0, ack_frame, &ack_frame_length);
     deadcom->transmitBytes(ack_frame, ack_frame_length);
 

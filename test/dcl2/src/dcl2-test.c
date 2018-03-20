@@ -26,19 +26,28 @@ FAKE_VALUE_FUNC(int, yahdlc_frame_data, yahdlc_control_t*, const char*, unsigned
  */
 int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned int data_len,
                          char *output_frame, unsigned int *output_frame_len) {
-    // Control struct
-    memcpy(output_frame, control, sizeof(yahdlc_control_t));
+
+    if (output_frame) {
+        // Control struct
+        memcpy(output_frame, control, sizeof(yahdlc_control_t));
+    }
     *output_frame_len = sizeof(yahdlc_control_t);
 
     if (data_len != 0) {
-        // Message length
-        output_frame[(*output_frame_len)++] = (data_len >> 24) & 0xFF;
-        output_frame[(*output_frame_len)++] = (data_len >> 16) & 0xFF;
-        output_frame[(*output_frame_len)++] = (data_len >>  8) & 0xFF;
-        output_frame[(*output_frame_len)++] = (data_len >>  0) & 0xFF;
+        if (output_frame) {
+            // Message length
+            output_frame[(*output_frame_len)++] = (data_len >> 24) & 0xFF;
+            output_frame[(*output_frame_len)++] = (data_len >> 16) & 0xFF;
+            output_frame[(*output_frame_len)++] = (data_len >>  8) & 0xFF;
+            output_frame[(*output_frame_len)++] = (data_len >>  0) & 0xFF;
+        } else {
+            *output_frame_len += 4;
+        }
 
-        // The message itself
-        memcpy(output_frame+(*output_frame_len), data, data_len);
+        if (output_frame) {
+            // The message itself
+            memcpy(output_frame+(*output_frame_len), data, data_len);
+        }
         *output_frame_len += data_len;
     }
 }
@@ -108,8 +117,10 @@ void test_ValidConnection() {
         // with no data
         TEST_ASSERT_EQUAL(data_len, 0);
         // Lets return fake frame
-        data_out[0] = 0x42;
-        data_out[1] = 0x47;
+        if (data_out) {
+            data_out[0] = 0x42;
+            data_out[1] = 0x47;
+        }
         *data_out_len = 2;
     }
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
@@ -212,7 +223,6 @@ void test_ConnectionNoOpWhenConnected() {
     // however functions should have been called only once
     TEST_ASSERT_EQUAL(condvarWait_fake.call_count, 1);
     TEST_ASSERT_EQUAL(transmitBytes_fake.call_count, 1);
-    TEST_ASSERT_EQUAL(yahdlc_frame_data_fake.call_count, 1);
 }
 
 

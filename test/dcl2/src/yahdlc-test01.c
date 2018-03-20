@@ -26,9 +26,9 @@ void test_FrameDataInvalidInputs() {
     ret = yahdlc_frame_data(&control, NULL, 0, frame_data, &frame_length);
     TEST_ASSERT_EQUAL_INT(ret, 0);
 
-    // Check invalid destination buffer parameter
+    // Check invalid destination buffer parameter (should compute only frame length)
     ret = yahdlc_frame_data(&control, send_data, sizeof(send_data), NULL, &frame_length);
-    TEST_ASSERT_EQUAL_INT(ret, -EINVAL);
+    TEST_ASSERT_EQUAL_INT(ret, 0);
 
     // Check invalid destination buffer length parameter
     ret = yahdlc_frame_data(&control, send_data, sizeof(send_data), frame_data, NULL);
@@ -154,7 +154,7 @@ void test_NackFrameControlField() {
 
 void test_0To512BytesData() {
     int ret;
-    unsigned int i, frame_length = 0, recv_length = 0;
+    unsigned int i, frame_length = 0, estimated_frame_length = 0, recv_length = 0;
     yahdlc_control_t control_send, control_recv;
     char send_data[512], frame_data[520], recv_data[520];
     yahdlc_state_t state;
@@ -170,12 +170,18 @@ void test_0To512BytesData() {
     for (i = 0; i <= sizeof(send_data); i++) {
         // Initialize control field structure and create frame
         control_send.frame = YAHDLC_FRAME_DATA;
+
+        ret = yahdlc_frame_data(&control_send, send_data, i, NULL,
+                                &estimated_frame_length);
+        TEST_ASSERT_EQUAL_INT(ret, 0);
+
         ret = yahdlc_frame_data(&control_send, send_data, i, frame_data,
                                 &frame_length);
 
         // Check that frame length is maximum 2 bytes larger than data due to escape of FCS value
         TEST_ASSERT(frame_length <= ((i + 6) + 2));
         TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL(estimated_frame_length, frame_length);
 
         recv_length = 0;
 
