@@ -21,7 +21,7 @@ TEST_CC         = $(TEST_TRGT)gcc
 TEST_LD         = $(TEST_TRGT)gcc
 TEST_INCDIR     = $(FFF) $(DCL2_INCLUDE)
 TEST_INCPARAMS  = $(foreach d, $(TEST_INCDIR), -I$d)
-TEST_CFLAGS     = -I. -I$(UNITY) $(TEST_INCPARAMS) -DTEST
+TEST_CFLAGS     = -I. -I$(UNITY) $(TEST_INCPARAMS) -DTEST -g
 
 
 $(TEST_BUILD):
@@ -70,10 +70,15 @@ $(TEST_BUILD)%.out: $$(shell echo $$@ | $$(FILE_UNDER_TEST)) $(TEST_OBJS)%.o $(T
 
 $(TEST_RESULTS)%.result: $(TEST_BUILD)%.out
 	@echo
-	@echo '----- Running test $<:'
+	@echo "******************************************************************************"
+	@echo "*"
+	@echo '* ----- Running test $<:'
 	@mkdir -p `dirname $@`
-	@-./$< > $@ 2>&1
-	@cat $@
+	@-valgrind -q --track-origins=yes ./$< > $@ 2>&1
+	@sed -e 's/^/* /' $@
+	@echo "*"
+	@echo "******************************************************************************"
+	@echo
 
 RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.result,$(TEST_CSRC))
 TEST_EXECS = $(patsubst $(TEST_RESULTS)%.result,$(TEST_BUILD)%.out,$(RESULTS))

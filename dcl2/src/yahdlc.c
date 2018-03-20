@@ -34,6 +34,7 @@ This file was modified for use in Project Deadlock (component libdeadcom). Notab
     control byte
   - Calling yahdlc_frame_data with NULL destination buffer will now compute the length of required
     buffer
+  - Fix valgrind-revealed uninitialized vars
 */
 
 #include "yahdlc.h"
@@ -119,7 +120,7 @@ void yahdlc_escape_value(char value, char *dest, int *dest_index) {
 
 
 yahdlc_control_t yahdlc_get_control_type(unsigned char control) {
-    yahdlc_control_t value;
+    yahdlc_control_t value = {};
 
     // Check if the frame is a S-frame (or U-frame)
     if (control & (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT)) {

@@ -10,9 +10,9 @@
 
 void test_FrameDataInvalidInputs() {
     int ret;
-    yahdlc_control_t control;
+    yahdlc_control_t control = {};
     unsigned int frame_length = 0;
-    char send_data[8], frame_data[8];
+    char send_data[8] = {0}, frame_data[8];
 
     // Check invalid control field parameter
     ret = yahdlc_frame_data(NULL, send_data, sizeof(send_data), frame_data, &frame_length);
@@ -155,8 +155,8 @@ void test_NackFrameControlField() {
 void test_0To512BytesData() {
     int ret;
     unsigned int i, frame_length = 0, estimated_frame_length = 0, recv_length = 0;
-    yahdlc_control_t control_send, control_recv;
-    char send_data[512], frame_data[520], recv_data[520];
+    yahdlc_control_t control_send = {}, control_recv = {};
+    char send_data[512] = {0}, frame_data[520], recv_data[520];
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);
@@ -224,8 +224,8 @@ void test_5BytesFrame() {
 
 void test_EndFlagSequenceInNewBuffer() {
     int ret;
-    yahdlc_control_t control;
-    char send_data[16], frame_data[24], recv_data[24];
+    yahdlc_control_t control = {};
+    char send_data[16] = {0}, frame_data[24] = {0}, recv_data[24];
     unsigned int i, frame_length = 0, recv_length = 0;
     yahdlc_state_t state;
 
@@ -264,7 +264,7 @@ void test_EndFlagSequenceInNewBuffer() {
 
 void test_FlagSequenceAndControlEscapeInData() {
     int ret;
-    yahdlc_control_t control;
+    yahdlc_control_t control = {};
     unsigned int frame_length = 0, recv_length = 0;
     char send_data[] = { YAHDLC_FLAG_SEQUENCE, 0x11, YAHDLC_CONTROL_ESCAPE },
          frame_data[16], recv_data[16];
@@ -294,8 +294,8 @@ void test_FlagSequenceAndControlEscapeInData() {
 
 void test_getDataFromMultipleBuffers() {
     int ret;
-    yahdlc_control_t control;
-    char send_data[512], frame_data[530], recv_data[530];
+    yahdlc_control_t control = {};
+    char send_data[512] = {0}, frame_data[530] = {0}, recv_data[530];
     unsigned int i, frame_length = 0, recv_length = 0, buf_length = 16;
     yahdlc_state_t state;
 
@@ -340,8 +340,8 @@ void test_getDataFromMultipleBuffers() {
 
 void test_MultipleFramesWithSingleFlagSequence() {
     int ret, frame_index = 0;
-    yahdlc_control_t control;
-    char send_data[32], frame_data[512], recv_data[512];
+    yahdlc_control_t control = {};
+    char send_data[32] = {0}, frame_data[512], recv_data[512];
     unsigned int i, frame_length = 0, recv_length = 0, frames = 10;
     yahdlc_state_t state;
 
@@ -393,8 +393,8 @@ void test_MultipleFramesWithSingleFlagSequence() {
 
 void test_MultipleFramesWithDoubleFlagSequence() {
     int ret, frame_index = 0;
-    yahdlc_control_t control;
-    char send_data[32], frame_data[512], recv_data[512];
+    yahdlc_control_t control = {};
+    char send_data[32] = {0}, frame_data[512], recv_data[512];
     unsigned int i, frame_length = 0, recv_length = 0, frames = 10;
     yahdlc_state_t state;
 
@@ -444,7 +444,7 @@ void test_MultipleFramesWithDoubleFlagSequence() {
 
 void test_FramesWithBitErrors() {
     int ret;
-    yahdlc_control_t control;
+    yahdlc_control_t control = {};
     unsigned int i, frame_length = 0, recv_length = 0;
     char send_data[] = { 0x55 }, frame_data[8], recv_data[8];
     yahdlc_state_t state;
