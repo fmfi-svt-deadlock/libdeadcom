@@ -254,20 +254,19 @@ int16_t dcGetReceivedMsgLen(DeadcomL2 *deadcom);
  */
 int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer);
 
-
-// ---- LOWER LAYER API (for use by physical layer driver) ----
-
 /**
- * Pass received data to the library.
+ * Process received data.
  *
- * This will cause the library to try to parse all received data. This call may take some time, so
- * don't call it from interrupt handler.
+ * This function processes all received bytes in the buffer `data` and triggers appropriate
+ * responses. The buffer may contain any chunk of received data, it does not have to contain the
+ * whole frame. This processing (and acting upon received data) may take some time, so this function
+ * is not to be called from an interrupt handler.
  *
  * @param[in] deadcom  Instance of an open DeadCom link
  * @param[in] data  Data that were just received
  * @param[in] len  Number of received bytes
  */
-void dcFeedData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len);
+DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len);
 
 
 #endif

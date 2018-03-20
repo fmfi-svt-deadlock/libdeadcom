@@ -59,7 +59,7 @@ DeadcomL2Result dcConnect(DeadcomL2 *deadcom) {
         .frame = YAHDLC_FRAME_CONN
     };
     // Calculate frame size
-    unsigned int frame_length;
+    unsigned int frame_length = 0;
     yahdlc_frame_data(&control_connect, NULL, 0, NULL, &frame_length);
 
     // Create the frame
@@ -217,7 +217,7 @@ int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer) {
 
     unsigned int ack_frame_length;
     yahdlc_frame_data(&control_ack, NULL, 0, NULL, &ack_frame_length);
-    
+
     uint8_t ack_frame[ack_frame_length];
     yahdlc_frame_data(&control_ack, NULL, 0, ack_frame, &ack_frame_length);
     deadcom->transmitBytes(ack_frame, ack_frame_length);
@@ -227,4 +227,83 @@ int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer) {
 
     deadcom->t->mutexUnlock(deadcom->mutex_p);
     return copied_size;
+}
+
+
+DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len) {
+    if (deadcom == NULL || data == NULL || len == 0) {
+        return DC_FAILURE;
+    }
+
+    deadcom->t->mutexLock(deadcom->mutex_p);
+
+    uint8_t processed = 0;
+    while (processed < len) {
+        yahdlc_control_t frame_control;
+        unsigned int processed_bytes = 0;
+        int yahdlc_result = yahdlc_get_data(&(deadcom->yahdlc_state), &frame_control,
+                                            data+processed, len, deadcom->extractionBuffer,
+                                            &processed_bytes);
+
+        if (yahdlc_result == -EINVAL) {
+            deadcom->t->mutexUnlock(deadcom->mutex_p);
+            return DC_FAILURE;
+        } else if (yahdlc_result == -EIO || yahdlc_result == -ENOMSG) {
+            // Invalid frame checksum or no message received, we should discard `processed_bytes`
+            // from the buffer
+            processed += processed_bytes;
+        } else {
+            // We've got something, let's process it according to our state
+            switch(deadcom->state) {
+                case DC_DISCONNECTED:
+                    if (frame_control.frame == YAHDLC_FRAME_CONN) {
+                        // This is a connection attempt. We should transition to CONNECTED mode
+                        // and transmit CONN_ACK frame
+                        yahdlc_control_t resp_ctrl = {
+                            .frame = YAHDLC_FRAME_CONN_ACK
+                        };
+
+                        unsigned int f_len = 0;
+                        if (yahdlc_frame_data(&resp_ctrl, NULL, 0, NULL, &f_len) == -EINVAL) {
+                            deadcom->t->mutexUnlock(deadcom->mutex_p);
+                            return DC_FAILURE;
+                        }
+
+                        uint8_t resp_f[f_len];
+                        yahdlc_frame_data(&resp_ctrl, NULL, 0, resp_f, &f_len);
+                        deadcom->transmitBytes(resp_f, f_len);
+
+                        resetLink(deadcom);
+                        deadcom->state = DC_CONNECTED;
+                    } else if (frame_control.frame != YAHDLC_FRAME_DISCONNECTED) {
+                        // When we are disconnected, we should respond with DISCONNECTED frame to
+                        // all frames except connection attemts (and other DISCONNECTED frames to
+                        // avoid endless noise)
+                        yahdlc_control_t resp_ctrl = {
+                            .frame = YAHDLC_FRAME_DISCONNECTED
+                        };
+
+                        unsigned int f_len = 0;
+                        if (yahdlc_frame_data(&resp_ctrl, NULL, 0, NULL, &f_len) == -EINVAL) {
+                            deadcom->t->mutexUnlock(deadcom->mutex_p);
+                            return DC_FAILURE;
+                        }
+
+                        uint8_t resp_f[f_len];
+                        yahdlc_frame_data(&resp_ctrl, NULL, 0, resp_f, &f_len);
+                        deadcom->transmitBytes(resp_f, f_len);
+                    }
+                    break;
+                case DC_CONNECTING:
+                    break;
+                case DC_CONNECTED:     // Fallthrough intentional
+                case DC_TRANSMITTING:
+                    break;
+            }
+            processed += processed_bytes;
+        }
+    }
+
+    deadcom->t->mutexUnlock(deadcom->mutex_p);
+    return DC_OK;
 }

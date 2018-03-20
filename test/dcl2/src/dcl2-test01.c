@@ -4,6 +4,10 @@
 
 #include "dcl2.h"
 
+/*
+ * Tests of Deadcom Layer 2 library, part 1: Initializing and transmitting frames
+ */
+
 DEFINE_FFF_GLOBALS;
 
 FAKE_VOID_FUNC(transmitBytes, uint8_t*, uint8_t);
@@ -15,7 +19,10 @@ FAKE_VALUE_FUNC(bool, condvarWait, void*, uint32_t);
 FAKE_VOID_FUNC(condvarSignal, void*);
 
 FAKE_VALUE_FUNC(int, yahdlc_frame_data, yahdlc_control_t*, const char*, unsigned int, char*,
-                unsigned int*)
+                unsigned int*);
+FAKE_VALUE_FUNC(int, yahdlc_get_data, yahdlc_state_t*, yahdlc_control_t*, const char*, unsigned int,
+                char*, unsigned int*);
+
 
 /* A fake framing implementation that produces inspectable frames in the following format:
  *
@@ -51,6 +58,7 @@ int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned i
         *output_frame_len += data_len;
     }
 }
+
 
 DeadcomL2ThreadingVMT t = {
     &mutexInit,
