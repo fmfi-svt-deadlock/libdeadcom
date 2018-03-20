@@ -347,3 +347,177 @@ void test_PDProcessDisconnectedWhenDisconnected() {
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
     TEST_ASSERT_EQUAL(DC_DISCONNECTED, d.state);
 }
+
+
+/* == Frame processing in Connecting mode ========================================================*/
+
+void test_PDProcessDataWhenConnecting() {
+    uint8_t dummy[] = {0};
+    DeadcomL2 d;
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(DC_OK, res);
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(condvarSignal);
+    RESET_FAKE(yahdlc_get_data);
+    RESET_FAKE(yahdlc_frame_data);
+    RESET_FAKE(transmitBytes);
+    yahdlc_get_data_fake.custom_fake = &get_data_fake_data_frame;
+    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+    d.state = DC_CONNECTING;
+
+    TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
+    // This frame should have been ignored
+    TEST_ASSERT_EQUAL(0, transmitBytes_fake.call_count);
+    // Condvar should not have been signaled
+    TEST_ASSERT_EQUAL(0, condvarSignal_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
+    TEST_ASSERT_EQUAL(DC_CONNECTING, d.state);
+}
+
+
+void test_PDProcessAckWhenConnecting() {
+    uint8_t dummy[] = {0};
+    DeadcomL2 d;
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(DC_OK, res);
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(yahdlc_get_data);
+    RESET_FAKE(yahdlc_frame_data);
+    RESET_FAKE(transmitBytes);
+    RESET_FAKE(condvarSignal);
+    yahdlc_get_data_fake.custom_fake = &get_data_fake_ack_frame;
+    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+    d.state = DC_CONNECTING;
+
+    TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
+    // This frame should have been ignored
+    TEST_ASSERT_EQUAL(0, transmitBytes_fake.call_count);
+    // Condvar should not have been signaled
+    TEST_ASSERT_EQUAL(0, condvarSignal_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
+    TEST_ASSERT_EQUAL(DC_CONNECTING, d.state);
+}
+
+
+void test_PDProcessNackWhenConnecting() {
+    uint8_t dummy[] = {0};
+    DeadcomL2 d;
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(DC_OK, res);
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(yahdlc_get_data);
+    RESET_FAKE(yahdlc_frame_data);
+    RESET_FAKE(transmitBytes);
+    RESET_FAKE(condvarSignal);
+    yahdlc_get_data_fake.custom_fake = &get_data_fake_nack_frame;
+    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+    d.state = DC_CONNECTING;
+
+    TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
+    // This frame should have been ignored
+    TEST_ASSERT_EQUAL(0, transmitBytes_fake.call_count);
+    // Condvar should not have been signaled
+    TEST_ASSERT_EQUAL(0, condvarSignal_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
+    TEST_ASSERT_EQUAL(DC_CONNECTING, d.state);
+}
+
+
+void test_PDProcessConnWhenConnecting() {
+    uint8_t dummy[] = {0};
+    DeadcomL2 d;
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(DC_OK, res);
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(yahdlc_get_data);
+    RESET_FAKE(yahdlc_frame_data);
+    RESET_FAKE(transmitBytes);
+    RESET_FAKE(condvarSignal);
+    yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
+    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+    d.state = DC_CONNECTING;
+
+    void transmitBytes_fake_impl(uint8_t *data, uint8_t len) {
+        // We should have transmitted CONN_ACK frame as response
+        TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
+    }
+    transmitBytes_fake.custom_fake = &transmitBytes_fake_impl;
+
+    TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
+    TEST_ASSERT_EQUAL(1, transmitBytes_fake.call_count);
+    // And signal the condvar because this also means that the connection succeeded
+    TEST_ASSERT_EQUAL(1, condvarSignal_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
+    TEST_ASSERT_EQUAL(DC_CONNECTING, d.state);
+    TEST_ASSERT_EQUAL(DC_RESP_OK, d.last_response);
+}
+
+
+void test_PDProcessConnAckWhenConnecting() {
+    uint8_t dummy[] = {0};
+    DeadcomL2 d;
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(DC_OK, res);
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(yahdlc_get_data);
+    RESET_FAKE(yahdlc_frame_data);
+    RESET_FAKE(transmitBytes);
+    RESET_FAKE(condvarSignal);
+    yahdlc_get_data_fake.custom_fake = &get_data_fake_connack_frame;
+    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+    d.state = DC_CONNECTING;
+
+    TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
+    TEST_ASSERT_EQUAL(0, transmitBytes_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
+    TEST_ASSERT_EQUAL(DC_CONNECTING, d.state);
+    TEST_ASSERT_EQUAL(1, condvarSignal_fake.call_count);
+    TEST_ASSERT_EQUAL(DC_RESP_OK, d.last_response);
+}
+
+
+void test_PDProcessDisconnectedWhenConnecting() {
+    uint8_t dummy[] = {0};
+    DeadcomL2 d;
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    TEST_ASSERT_EQUAL(DC_OK, res);
+
+    RESET_FAKE(mutexLock);
+    RESET_FAKE(mutexUnlock);
+    RESET_FAKE(yahdlc_get_data);
+    RESET_FAKE(yahdlc_frame_data);
+    RESET_FAKE(transmitBytes);
+    RESET_FAKE(condvarSignal);
+    yahdlc_get_data_fake.custom_fake = &get_data_fake_disconnected_frame;
+    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
+
+    d.state = DC_CONNECTING;
+
+    TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
+    // We should have ignored this frame
+    TEST_ASSERT_EQUAL(0, transmitBytes_fake.call_count);
+    TEST_ASSERT_EQUAL(0, condvarSignal_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
+    TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
+    TEST_ASSERT_EQUAL(DC_CONNECTING, d.state);
+}

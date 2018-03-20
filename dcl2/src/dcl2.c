@@ -295,6 +295,33 @@ DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len) {
                     }
                     break;
                 case DC_CONNECTING:
+                    // We are waiting for CONN_ACK frame.
+                    if (frame_control.frame == YAHDLC_FRAME_CONN_ACK) {
+                        deadcom->last_response = DC_RESP_OK;
+                        deadcom->t->condvarSignal(deadcom->condvar_p);
+                    }
+                    // Though if we receive CONN frame we may be deling with connection comptention
+                    if (frame_control.frame == YAHDLC_FRAME_CONN) {
+                        // In that case just act cool and ack
+                        yahdlc_control_t resp_ctrl = {
+                            .frame = YAHDLC_FRAME_CONN_ACK
+                        };
+
+                        unsigned int f_len = 0;
+                        if (yahdlc_frame_data(&resp_ctrl, NULL, 0, NULL, &f_len) == -EINVAL) {
+                            deadcom->t->mutexUnlock(deadcom->mutex_p);
+                            return DC_FAILURE;
+                        }
+
+                        uint8_t resp_f[f_len];
+                        yahdlc_frame_data(&resp_ctrl, NULL, 0, resp_f, &f_len);
+                        deadcom->transmitBytes(resp_f, f_len);
+
+                        deadcom->last_response = DC_RESP_OK;
+                        deadcom->t->condvarSignal(deadcom->condvar_p);
+                    }
+                    // It is safe to ignore any other frame (reception of which may mean that
+                    // CONN_ACK frame of the other side may have gotten lost)
                     break;
                 case DC_CONNECTED:     // Fallthrough intentional
                 case DC_TRANSMITTING:
