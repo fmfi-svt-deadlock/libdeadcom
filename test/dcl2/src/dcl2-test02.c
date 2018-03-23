@@ -75,42 +75,42 @@ int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, c
     control->frame = YAHDLC_FRAME_DATA;
     memcpy(dest, data, sizeof(data));
     *dest_len = src_len;
-    return 0;
+    return src_len;
 }
 
 int get_data_fake_ack_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                   unsigned int src_len, char* dest, unsigned int *dest_len) {
     control->frame = YAHDLC_FRAME_ACK;
-    *dest_len = src_len;
-    return 0;
+    *dest_len = 0;
+    return src_len;
 }
 
 int get_data_fake_nack_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                   unsigned int src_len, char* dest, unsigned int *dest_len) {
     control->frame = YAHDLC_FRAME_NACK;
-    *dest_len = src_len;
-    return 0;
+    *dest_len = 0;
+    return src_len;
 }
 
 int get_data_fake_conn_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                   unsigned int src_len, char* dest, unsigned int *dest_len) {
     control->frame = YAHDLC_FRAME_CONN;
-    *dest_len = src_len;
-    return 0;
+    *dest_len = 0;
+    return src_len;
 }
 
 int get_data_fake_connack_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                   unsigned int src_len, char* dest, unsigned int *dest_len) {
     control->frame = YAHDLC_FRAME_CONN_ACK;
-    *dest_len = src_len;
-    return 0;
+    *dest_len = 0;
+    return src_len;
 }
 
 int get_data_fake_disconnected_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                   unsigned int src_len, char* dest, unsigned int *dest_len) {
     control->frame = YAHDLC_FRAME_DISCONNECTED;
-    *dest_len = src_len;
-    return 0;
+    *dest_len = 0;
+    return src_len;
 }
 
 
