@@ -21,7 +21,7 @@ TEST_CC         = $(TEST_TRGT)gcc
 TEST_LD         = $(TEST_TRGT)gcc
 TEST_INCDIR     = $(FFF) $(DCL2_INCLUDE)
 TEST_INCPARAMS  = $(foreach d, $(TEST_INCDIR), -I$d)
-TEST_CFLAGS     = -I. -I$(UNITY) $(TEST_INCPARAMS) -DTEST -g
+TEST_CFLAGS     = -I. -I$(UNITY) $(TEST_INCPARAMS) -DTEST -g -Wno-trampolines
 
 
 $(TEST_BUILD):
