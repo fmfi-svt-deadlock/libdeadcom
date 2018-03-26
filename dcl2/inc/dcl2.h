@@ -91,6 +91,9 @@ typedef struct {
     // Buffer for extracted data.
     uint8_t extractionBuffer[DEADCOM_PAYLOAD_MAX_LEN];
 
+    // Scratchpad buffer for data extraction from newly-received frames
+    uint8_t scratchpadBuffer[DEADCOM_PAYLOAD_MAX_LEN];
+
     // Length of extracted data, if any.
     int16_t extractionBufferSize;
 
@@ -103,8 +106,8 @@ typedef struct {
     // Outgoing frame number
     uint8_t send_number;
 
-    // Last acknowledged frame number
-    uint8_t last_acked;
+    // Last acknowledged frame number by the other side
+    uint8_t next_expected_ack;
 
     // Incoming frame number
     uint8_t recv_number;

@@ -485,7 +485,7 @@ void test_SendMessageWithAcknowledgment() {
             // Simulate connected state
             d.state = DC_CONNECTED;
             d.send_number = sseq;
-            d.last_acked  = sseq;
+            d.next_expected_ack  = sseq;
             d.recv_number = rseq;
 
             res = dcSendMessage(&d, message, sizeof(message));

@@ -4,7 +4,7 @@
 
 static void resetLink(DeadcomL2 *deadcom) {
     deadcom->send_number = 0;
-    deadcom->last_acked = 0;
+    deadcom->next_expected_ack = 0;
     deadcom->recv_number = 0;
     deadcom->failure_count = 0;
     deadcom->extractionBufferSize = DC_E_NOMSG;
@@ -240,94 +240,130 @@ DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len) {
     uint8_t processed = 0;
     while (processed < len) {
         yahdlc_control_t frame_control;
-        unsigned int processed_bytes = 0;
+        unsigned int dest_len = 0;
         int yahdlc_result = yahdlc_get_data(&(deadcom->yahdlc_state), &frame_control,
-                                            data+processed, len, deadcom->extractionBuffer,
-                                            &processed_bytes);
+                                            data+processed, len-processed,
+                                            deadcom->scratchpadBuffer, &dest_len);
 
         if (yahdlc_result == -EINVAL) {
             deadcom->t->mutexUnlock(deadcom->mutex_p);
             return DC_FAILURE;
-        } else if (yahdlc_result == -EIO || yahdlc_result == -ENOMSG) {
-            // Invalid frame checksum or no message received, we should discard `processed_bytes`
-            // from the buffer
-            processed += processed_bytes;
+        } else if (yahdlc_result == -EIO) {
+            // Invalid frame checksum we should discard `processed_bytes` from the buffer
+            processed += dest_len;
+        } else if (yahdlc_result == -ENOMSG) {
+            // This buffer did not contain end-of-frame mark. It was parsed and we may
+            // discard it.
+            processed = len;
+            break;
         } else {
-            // We've got something, let's process it according to our state
-            switch(deadcom->state) {
-                case DC_DISCONNECTED:
-                    if (frame_control.frame == YAHDLC_FRAME_CONN) {
-                        // This is a connection attempt. We should transition to CONNECTED mode
-                        // and transmit CONN_ACK frame
-                        yahdlc_control_t resp_ctrl = {
-                            .frame = YAHDLC_FRAME_CONN_ACK
-                        };
+            // This buffer did contain end of at least one frame. We should discard `yahdlc_result`
+            // bytes from the buffer
+            processed += yahdlc_result;
+            yahdlc_control_t resp_ctrl;
+            switch (frame_control.frame) {
+                case YAHDLC_FRAME_DATA:
+                    // We should process DATA frames only if we are connected
+                    if (deadcom->state == DC_CONNECTED || deadcom->state == DC_TRANSMITTING) {
+                        if (frame_control.send_seq_no == deadcom->recv_number) {
+                            if (deadcom->extractionBufferSize == DC_E_NOMSG) {
+                                deadcom->extractionBufferSize = dest_len;
+                                deadcom->extractionComplete = true;
+                                memcpy(deadcom->extractionBuffer, deadcom->scratchpadBuffer,
+                                       dest_len);
+                                deadcom->recv_number = (deadcom->recv_number + 1) % 7;
+                            }
+                            // else: there already is a message in the extraction buffer. That means
+                            // that the other station has sent a frame without waiting for ack on
+                            // the previous frame. We will therefore ignore it.
+                        } else if (!deadcom->extractionComplete &&
+                                   (frame_control.send_seq_no + 1) % 7 == deadcom->recv_number) {
+                            // We've seen and previously acked this frame. Since we've received
+                            // again that ack must've gotten lost, so retransmit it.
+                            yahdlc_control_t control_ack = {
+                                .frame = YAHDLC_FRAME_ACK,
+                                .recv_seq_no = (deadcom->recv_number + 6) % 7
+                            };
 
-                        unsigned int f_len = 0;
-                        if (yahdlc_frame_data(&resp_ctrl, NULL, 0, NULL, &f_len) == -EINVAL) {
-                            deadcom->t->mutexUnlock(deadcom->mutex_p);
-                            return DC_FAILURE;
+                            unsigned int ack_frame_length;
+                            yahdlc_frame_data(&control_ack, NULL, 0, NULL, &ack_frame_length);
+
+                            uint8_t ack_frame[ack_frame_length];
+                            yahdlc_frame_data(&control_ack, NULL, 0, ack_frame, &ack_frame_length);
+                            deadcom->transmitBytes(ack_frame, ack_frame_length);
                         }
-
-                        uint8_t resp_f[f_len];
-                        yahdlc_frame_data(&resp_ctrl, NULL, 0, resp_f, &f_len);
-                        deadcom->transmitBytes(resp_f, f_len);
-
-                        resetLink(deadcom);
-                        deadcom->state = DC_CONNECTED;
-                    } else if (frame_control.frame != YAHDLC_FRAME_DISCONNECTED) {
-                        // When we are disconnected, we should respond with DISCONNECTED frame to
-                        // all frames except connection attemts (and other DISCONNECTED frames to
-                        // avoid endless noise)
-                        yahdlc_control_t resp_ctrl = {
-                            .frame = YAHDLC_FRAME_DISCONNECTED
-                        };
-
-                        unsigned int f_len = 0;
-                        if (yahdlc_frame_data(&resp_ctrl, NULL, 0, NULL, &f_len) == -EINVAL) {
-                            deadcom->t->mutexUnlock(deadcom->mutex_p);
-                            return DC_FAILURE;
+                        // else: It is an out-of-sequence frame, it is safe to ignore.
+                    }
+                    break;
+                case YAHDLC_FRAME_ACK:
+                    // We should process ACK frames only if we are transmitting (and therefore
+                    // expecting them)
+                    if (deadcom->state == DC_TRANSMITTING) {
+                        if (frame_control.recv_seq_no == deadcom->next_expected_ack) {
+                            // Correct acknowledgment.
+                            deadcom->next_expected_ack = (deadcom->next_expected_ack + 1) % 7;
+                            deadcom->last_response = DC_RESP_OK;
+                            deadcom->t->condvarSignal(deadcom->condvar_p);
                         }
+                        // Discard incorrect acknowledgment.
+                    }
+                    break;
+                case YAHDLC_FRAME_NACK:
+                    // We should process NACK frames only if we are transmitting (and therefore
+                    // expecting them)
+                    if (deadcom->state == DC_TRANSMITTING) {
+                        // The other station has received some garbage and is proactively requesting
+                        // retransmission
+                        deadcom->last_response = DC_RESP_REJECT;
+                        deadcom->t->condvarSignal(deadcom->condvar_p);
+                    }
+                    break;
+                case YAHDLC_FRAME_CONN:
+                    // This is a connection attempt. We should transition to CONNECTED mode
+                    // and transmit CONN_ACK frame (even if we already were in the CONNETED mode,
+                    // the other station has obviously thought otherwise).
+                    resp_ctrl.frame = YAHDLC_FRAME_CONN_ACK;
 
+                    unsigned int f_len = 0;
+                    if (yahdlc_frame_data(&resp_ctrl, NULL, 0, NULL, &f_len) == -EINVAL) {
+                        deadcom->t->mutexUnlock(deadcom->mutex_p);
+                        return DC_FAILURE;
+                    }
+
+                    {
                         uint8_t resp_f[f_len];
                         yahdlc_frame_data(&resp_ctrl, NULL, 0, resp_f, &f_len);
                         deadcom->transmitBytes(resp_f, f_len);
                     }
+
+                    DeadcomL2State original_state = deadcom->state;
+
+                    resetLink(deadcom);
+                    deadcom->state = DC_CONNECTED;
+
+                    if (original_state == DC_TRANSMITTING) {
+                        // We were transmitting when the link reset happened, we need to notify the
+                        // transmit thread.
+                        deadcom->last_response = DC_RESP_NOLINK;
+                        deadcom->t->condvarSignal(deadcom->condvar_p);
+                    } else if (original_state == DC_CONNECTING) {
+                        // We were just connecting, so this was a connection comptention. We should
+                        // also notify the transmit thread
+                        deadcom->last_response = DC_RESP_OK;
+                        // The connect thread will handle the state transition
+                        deadcom->state = DC_CONNECTING;
+                        deadcom->t->condvarSignal(deadcom->condvar_p);
+                    }
                     break;
-                case DC_CONNECTING:
-                    // We are waiting for CONN_ACK frame.
-                    if (frame_control.frame == YAHDLC_FRAME_CONN_ACK) {
+                case YAHDLC_FRAME_CONN_ACK:
+                    // If we are connecting the other station has just accepted our connection.
+                    // If we weren't connecting then we can safely ignore this.
+                    if (deadcom->state == DC_CONNECTING) {
                         deadcom->last_response = DC_RESP_OK;
                         deadcom->t->condvarSignal(deadcom->condvar_p);
                     }
-                    // Though if we receive CONN frame we may be deling with connection comptention
-                    if (frame_control.frame == YAHDLC_FRAME_CONN) {
-                        // In that case just act cool and ack
-                        yahdlc_control_t resp_ctrl = {
-                            .frame = YAHDLC_FRAME_CONN_ACK
-                        };
-
-                        unsigned int f_len = 0;
-                        if (yahdlc_frame_data(&resp_ctrl, NULL, 0, NULL, &f_len) == -EINVAL) {
-                            deadcom->t->mutexUnlock(deadcom->mutex_p);
-                            return DC_FAILURE;
-                        }
-
-                        uint8_t resp_f[f_len];
-                        yahdlc_frame_data(&resp_ctrl, NULL, 0, resp_f, &f_len);
-                        deadcom->transmitBytes(resp_f, f_len);
-
-                        deadcom->last_response = DC_RESP_OK;
-                        deadcom->t->condvarSignal(deadcom->condvar_p);
-                    }
-                    // It is safe to ignore any other frame (reception of which may mean that
-                    // CONN_ACK frame of the other side may have gotten lost)
-                    break;
-                case DC_CONNECTED:     // Fallthrough intentional
-                case DC_TRANSMITTING:
                     break;
             }
-            processed += processed_bytes;
         }
     }
 
