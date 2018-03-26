@@ -1,0 +1,11 @@
+stages:
+    - test
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+test:
+    stage: test
+    image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
+    script:
+        - make test
