@@ -1,0 +1,19 @@
+image: docker:latest
+services:
+    - docker:dind
+
+stages:
+    - build
+
+variables:
+    REGISTRY_HOST: registry.gitlab.com
+    TARGET_IMAGE: $REGISTRY_HOST/project-deadlock/libdeadcom/deadcom-tester:latest
+
+build-image:
+    stage: build
+    script:
+        - docker build -t $TARGET_IMAGE .
+        - echo $CI_BUILD_TOKEN | docker login -u gitlab-ci-token --password-stdin $REGISTRY_HOST
+        - docker push $TARGET_IMAGE
+    only:
+        - docker
