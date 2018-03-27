@@ -4,8 +4,16 @@ stages:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
-test:
+test-libs:
     stage: test
     image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
     script:
         - make test
+
+test-build-docs:
+    stage: test
+    image: python:3-alpine3.7
+    script:
+        - apk add --update doxygen make
+        - pip install -r docs/requirements.txt
+        - cd docs && make html
