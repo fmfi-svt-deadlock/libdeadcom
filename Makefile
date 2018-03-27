@@ -1,5 +1,25 @@
 DCL2_SOURCE   = dcl2/lib/src
 DCL2_INCLUDE  = dcl2/lib/inc
+DCL2_SRC      = $(shell find $(DCL2_SOURCE) -type f -name '*.c')
+
+##############################################################################
+# Start of pthread DeadCom Shared Object
+#
+
+DCL2_PTHREADS_SOURCE  = dcl2/helper-pthreads/src
+DCL2_PTHREADS_INCLUDE = dcl2/helper-pthreads/inc
+DCL2_PTHREADS_SRC     = $(shell find $(DCL2_PTHREADS_SOURCE) -type f -name '*.c')
+
+DCL2_PTHREADS_TARGET  =
+DCL2_PTHREADS_CC      = $(DCL2_PTHREADS_TARGET)gcc
+DCL2_PTHREADS_CFLAGS  = -I$(DCL2_INCLUDE) -I$(DCL2_PTHREADS_INCLUDE) -lpthread -fpic -shared
+
+build/dcl2-pthread.so: $(DCL2_SRC) $(DCL2_PTHREADS_SRC)
+	$(DCL2_PTHREADS_CC) $(DCL2_PTHREADS_CFLAGS) $^ -o $@
+
+#
+# End of pthread DeadCom Shared Object
+##############################################################################
 
 ##############################################################################
 # Start of Unit Testing with Unity rules

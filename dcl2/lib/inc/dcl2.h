@@ -71,6 +71,7 @@ typedef struct {
     void (*condvarInit)(void *condvar_p);
 
     // Wait on conditional variable object with timeout
+    // returns true when there was no timeout
     bool (*condvarWait)(void *condvar_p, uint32_t milliseconds);
 
     // Signal conditional variable object
