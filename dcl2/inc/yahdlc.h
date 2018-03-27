@@ -63,7 +63,6 @@ typedef enum {
     YAHDLC_FRAME_NACK,
     YAHDLC_FRAME_CONN,
     YAHDLC_FRAME_CONN_ACK,
-    YAHDLC_FRAME_DISCONNECTED,
 } yahdlc_frame_t;
 
 /** Control field information */

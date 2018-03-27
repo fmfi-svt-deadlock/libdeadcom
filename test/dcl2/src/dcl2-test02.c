@@ -109,13 +109,6 @@ int get_data_fake_connack_frame(yahdlc_state_t *state, yahdlc_control_t *control
     return src_len;
 }
 
-int get_data_fake_disconnected_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                  unsigned int src_len, char* dest, unsigned int *dest_len) {
-    control->frame = YAHDLC_FRAME_DISCONNECTED;
-    *dest_len = 0;
-    return src_len;
-}
-
 
 /* == Generic processData tests ==================================================================*/
 
@@ -298,29 +291,6 @@ void test_PDProcessConnAckWhenDisconnected() {
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
     TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
-    TEST_ASSERT_EQUAL(0, transmitBytes_fake.call_count);
-    TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
-    TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
-    TEST_ASSERT_EQUAL(DC_DISCONNECTED, d.state);
-}
-
-
-void test_PDProcessDisconnectedWhenDisconnected() {
-    uint8_t dummy[] = {0};
-    DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
-    TEST_ASSERT_EQUAL(DC_OK, res);
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    yahdlc_get_data_fake.custom_fake = &get_data_fake_disconnected_frame;
-    yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
-
-    TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
-    // We should have ignored this frame
     TEST_ASSERT_EQUAL(0, transmitBytes_fake.call_count);
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);

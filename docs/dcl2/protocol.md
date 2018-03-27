@@ -145,13 +145,8 @@ P/F bit is set (HDLC SABM command).
 
 #### CONN_ACK frame
 
-CONN_ACK is used to acknowledge either the CMD_CONNECT or CMD_DISCONNECT. It has U format Control
+CONN_ACK is used to acknowledge either the CONN frame. It has U format Control
 Field, where M is 0x66 (HDLC UA Response) and the P/F bit is set.
-
-#### DISCONNECTED frame
-
-DISCONNECTED frame is used as a response when the station is in disconnected mode. It has U format
-Control Field, where M is 0x78 and the P/F bit is set.
 
 Procedures of operation
 -----------------------
@@ -179,9 +174,8 @@ There are two modes the station can be in:
 
 ### Procedures of operation in disconnected mode
 
-In this mode the station considers the data link to be disconnected. It shall respond with
-DISCONNECTED frame to all received frames except the CONN frame. It can decide to initialize the
-connection at any time.
+In this mode the station considers the data link to be disconnected. It shall only to the CONN
+frame. It can decide to initialize the connection at any time.
 
 #### Initializing the connection
 
@@ -201,8 +195,8 @@ frame.
 If the station sends a CONN frame, and before receiving an appropriate response receivers either
 DISC frame or CONN frame a link initialization race condition has developed. This situation is
 described in ISO/IEC 13239:2002(E), section 6.12.4.1.4 (Simultaneous attempts to set mode
-    (contention)). However, HDLC supports setting different modes, whereas we support only one,
-    therefore the solution is simple:
+(contention)). However, HDLC supports setting different modes, whereas we support only one,
+therefore the solution is simple:
 
 If the station sends CONN frame and receives CONN frame as a response, it shall send CONN_ACK frame,
 reset its status variables and transition to connected state immediately.
@@ -219,14 +213,8 @@ initialization race condition, and this frame shall be ignored.
 #### Handling CONN frame
 
 If we are in the connected mode and we receive CONN frame it means that the other station thinks the
-link is in disconnected mode. Therefore we shall immediatelly transition to disconnected mode and
+link is in disconnected mode. Therefore we shall immediately transition to disconnected mode and
 behave as if we've received CONN frame in disconnected mode.
-
-#### Handling DISCONNECTED frame
-
-If we are in the connected mode and we receive DISCONNECTED frame it means that we've sent some data
-to the other station, but the other station is in disconnected mode. We must therefore immediately
-transition to disconnected mode and may decide to initialize the connection again.
 
 #### Exchange of DATA frames
 

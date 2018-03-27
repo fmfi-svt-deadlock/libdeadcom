@@ -126,15 +126,10 @@ yahdlc_control_t yahdlc_get_control_type(unsigned char control) {
     if (control & (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT)) {
         // Check if only U-frame type
         if (control & (1 << YAHDLC_CONTROL_U_ONLY_FRAME_BIT)) {
-            // Is CONN-type
             if ((control >> YAHDLC_CONTROL_CONN_SPECIAL_BIT) == YAHDLC_U_FRAME_CONN_CHECK) {
                 value.frame = YAHDLC_FRAME_CONN;
-                // Is CONN_ACK-type
             } else if ((control >> YAHDLC_CONTROL_CONN_SPECIAL_BIT) == YAHDLC_U_FRAME_CONN_ACK_CHECK) {
                 value.frame = YAHDLC_FRAME_CONN_ACK;
-                // Is DISCONNECT-type
-            } else {
-                value.frame = YAHDLC_FRAME_DISCONNECTED;
             }
         } else {
             // Check if S-frame type is a Receive Ready (ACK)
@@ -166,43 +161,40 @@ unsigned char yahdlc_frame_control_type(yahdlc_control_t *control) {
     // For details see: https://en.wikipedia.org/wiki/High-Level_Data_Link_Control
     switch (control->frame) {
         case YAHDLC_FRAME_DATA:
-        // Create the HDLC I-frame control byte with Poll bit set
-        value |= (control->send_seq_no << YAHDLC_CONTROL_SEND_SEQ_NO_BIT);
-        value |= (control->recv_seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
-        value |= (1 << YAHDLC_CONTROL_POLL_BIT);
-        break;
+            // Create the HDLC I-frame control byte with Poll bit set
+            value |= (control->send_seq_no << YAHDLC_CONTROL_SEND_SEQ_NO_BIT);
+            value |= (control->recv_seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
+            value |= (1 << YAHDLC_CONTROL_POLL_BIT);
+            break;
+
         case YAHDLC_FRAME_ACK:
-        // Create the HDLC Receive Ready S-frame control byte with Poll bit cleared
-        value |= (control->recv_seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
-        value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
-        break;
+            // Create the HDLC Receive Ready S-frame control byte with Poll bit cleared
+            value |= (control->recv_seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
+            value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
+            break;
+
         case YAHDLC_FRAME_NACK:
-        // Create the HDLC Receive Ready S-frame control byte with Poll bit cleared
-        value |= (control->recv_seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
-        value |= (YAHDLC_CONTROL_TYPE_REJECT << YAHDLC_CONTROL_S_FRAME_TYPE_BIT);
-        value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
-        break;
+            // Create the HDLC Receive Ready S-frame control byte with Poll bit cleared
+            value |= (control->recv_seq_no << YAHDLC_CONTROL_RECV_SEQ_NO_BIT);
+            value |= (YAHDLC_CONTROL_TYPE_REJECT << YAHDLC_CONTROL_S_FRAME_TYPE_BIT);
+            value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
+            break;
+
         case YAHDLC_FRAME_CONN:
-        // Create the HDLC SABM U-frame control byte with Poll bit set
-        value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
-        value |= (1 << YAHDLC_CONTROL_U_ONLY_FRAME_BIT);
-        value |= (1 << YAHDLC_CONTROL_POLL_BIT);
-        value |= (YAHDLC_CONTROL_U_TYPE_ADDED_BITS << YAHDLC_CONTROL_CONN_OR_DISC);
-        value |= (1 << YAHDLC_CONTROL_CONN_SPECIAL_BIT);
-        break;
+            // Create the HDLC SABM U-frame control byte with Poll bit set
+            value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
+            value |= (1 << YAHDLC_CONTROL_U_ONLY_FRAME_BIT);
+            value |= (1 << YAHDLC_CONTROL_POLL_BIT);
+            value |= (YAHDLC_CONTROL_U_TYPE_ADDED_BITS << YAHDLC_CONTROL_CONN_OR_DISC);
+            value |= (1 << YAHDLC_CONTROL_CONN_SPECIAL_BIT);
+            break;
+
         case YAHDLC_FRAME_CONN_ACK:
-        // Create the HDLC UA U-frame control byte with Poll bit cleared
-        value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
-        value |= (1 << YAHDLC_CONTROL_U_ONLY_FRAME_BIT);
-        value |= (YAHDLC_CONTROL_U_TYPE_ADDED_BITS << YAHDLC_CONTROL_CONN_ACK);
-        break;
-        case YAHDLC_FRAME_DISCONNECTED:
-        // Create the HDLC DM U-frame control byte with Poll bit set
-        value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
-        value |= (1 << YAHDLC_CONTROL_U_ONLY_FRAME_BIT);
-        value |= (1 << YAHDLC_CONTROL_POLL_BIT);
-        value |= (YAHDLC_CONTROL_U_TYPE_ADDED_BITS << YAHDLC_CONTROL_CONN_OR_DISC);
-        break;
+            // Create the HDLC UA U-frame control byte with Poll bit cleared
+            value |= (1 << YAHDLC_CONTROL_S_OR_U_FRAME_BIT);
+            value |= (1 << YAHDLC_CONTROL_U_ONLY_FRAME_BIT);
+            value |= (YAHDLC_CONTROL_U_TYPE_ADDED_BITS << YAHDLC_CONTROL_CONN_ACK);
+            break;
     }
     return value;
 }
