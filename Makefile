@@ -1,5 +1,5 @@
-DCL2_SOURCE   = dcl2/src
-DCL2_INCLUDE  = dcl2/inc
+DCL2_SOURCE   = dcl2/lib/src
+DCL2_INCLUDE  = dcl2/lib/inc
 
 ##############################################################################
 # Start of Unit Testing with Unity rules
