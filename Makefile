@@ -28,12 +28,12 @@ build/dcl2-pthread.so: $(DCL2_SRC) $(DCL2_PTHREADS_SRC)
 UNITY         = deps/Unity/src/
 FFF           = deps/fff/
 
-TEST_BUILD    = build/test/build/
-TEST_OBJS     = build/test/objs/
-TEST_RESULTS  = build/test/results/
-TEST_RUNNERS  = build/test/runners/
+TEST_BUILD    = build/test/unit/build/
+TEST_OBJS     = build/test/unit/objs/
+TEST_RESULTS  = build/test/unit/results/
+TEST_RUNNERS  = build/test/unit/runners/
 TEST_BUILD_PATHS = $(TEST_BUILD) $(TEST_OBJS) $(TEST_RESULTS) $(TEST_RUNNERS)
-TEST_PATH     = test/
+TEST_PATH     = test/unit/
 TEST_CSRC     = $(shell find $(TEST_PATH) -type f -regextype sed -regex '.*-test[0-9]*\.c')
 
 TEST_TRGT       =
