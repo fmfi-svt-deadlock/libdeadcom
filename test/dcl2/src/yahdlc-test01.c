@@ -16,23 +16,23 @@ void test_FrameDataInvalidInputs() {
 
     // Check invalid control field parameter
     ret = yahdlc_frame_data(NULL, send_data, sizeof(send_data), frame_data, &frame_length);
-    TEST_ASSERT_EQUAL_INT(ret, -EINVAL);
+    TEST_ASSERT_EQUAL_INT(-EINVAL, ret);
 
     // Check invalid source buffer parameter (positive source buffer length)
     ret = yahdlc_frame_data(&control, NULL, 1, frame_data, &frame_length);
-    TEST_ASSERT_EQUAL_INT(ret, -EINVAL);
+    TEST_ASSERT_EQUAL_INT(-EINVAL, ret);
 
     // Check that it is possible to create an empty frame
     ret = yahdlc_frame_data(&control, NULL, 0, frame_data, &frame_length);
-    TEST_ASSERT_EQUAL_INT(ret, 0);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 
     // Check invalid destination buffer parameter (should compute only frame length)
     ret = yahdlc_frame_data(&control, send_data, sizeof(send_data), NULL, &frame_length);
-    TEST_ASSERT_EQUAL_INT(ret, 0);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 
     // Check invalid destination buffer length parameter
     ret = yahdlc_frame_data(&control, send_data, sizeof(send_data), frame_data, NULL);
-    TEST_ASSERT_EQUAL_INT(ret, -EINVAL);
+    TEST_ASSERT_EQUAL_INT(-EINVAL, ret);
 }
 
 
@@ -44,7 +44,7 @@ void test_GetDataInvalidInputs() {
 
     ret = yahdlc_get_data(NULL, &control, frame_data, sizeof(frame_data), recv_data,
                           &recv_length);
-    TEST_ASSERT_EQUAL_INT(ret, -EINVAL);
+    TEST_ASSERT_EQUAL_INT(-EINVAL, ret);
 }
 
 
@@ -66,7 +66,7 @@ void test_DataFrameControlField() {
 
             // Create an empty frame with the control field information
             ret = yahdlc_frame_data(&control_send, NULL, 0, frame_data, &frame_length);
-            TEST_ASSERT_EQUAL_INT(ret, 0);
+            TEST_ASSERT_EQUAL_INT(0, ret);
 
             recv_length = 0;
             // Get the data from the frame
@@ -75,12 +75,12 @@ void test_DataFrameControlField() {
 
             // Result should be frame_length minus start flag to be discarded and no bytes received
             TEST_ASSERT_EQUAL_INT(ret, ((int )frame_length - 1));
-            TEST_ASSERT_EQUAL_INT(recv_length, 0);
+            TEST_ASSERT_EQUAL_INT(0, recv_length);
 
             // Verify the control field information
-            TEST_ASSERT_EQUAL_INT(control_send.frame, control_recv.frame);
-            TEST_ASSERT_EQUAL_INT(control_send.send_seq_no, control_recv.send_seq_no);
-            TEST_ASSERT_EQUAL_INT(control_send.recv_seq_no, control_recv.recv_seq_no);
+            TEST_ASSERT_EQUAL_INT(control_recv.frame, control_send.frame);
+            TEST_ASSERT_EQUAL_INT(control_recv.send_seq_no, control_send.send_seq_no);
+            TEST_ASSERT_EQUAL_INT(control_recv.recv_seq_no, control_send.recv_seq_no);
         }
     }
 }
@@ -102,7 +102,7 @@ void test_AckFrameControlField() {
 
       // Create an empty frame with the control field information
       ret = yahdlc_frame_data(&control_send, NULL, 0, frame_data, &frame_length);
-      TEST_ASSERT_EQUAL_INT(ret, 0);
+      TEST_ASSERT_EQUAL_INT(0, ret);
 
       // Get the data from the frame
       ret = yahdlc_get_data(&state, &control_recv, frame_data, frame_length, recv_data,
@@ -110,11 +110,11 @@ void test_AckFrameControlField() {
 
       // Result should be frame_length minus start flag to be discarded and no bytes received
       TEST_ASSERT_EQUAL_INT(ret, ((int )frame_length - 1));
-      TEST_ASSERT_EQUAL_INT(recv_length, 0);
+      TEST_ASSERT_EQUAL_INT(0, recv_length);
 
       // Verify the control field information
-      TEST_ASSERT_EQUAL_INT(control_send.frame, control_recv.frame);
-      TEST_ASSERT_EQUAL_INT(control_send.recv_seq_no, control_recv.recv_seq_no);
+      TEST_ASSERT_EQUAL_INT(control_recv.frame, control_send.frame);
+      TEST_ASSERT_EQUAL_INT(control_recv.recv_seq_no, control_send.recv_seq_no);
     }
 }
 
@@ -135,7 +135,7 @@ void test_NackFrameControlField() {
 
         // Create an empty frame with the control field information
         ret = yahdlc_frame_data(&control_send, NULL, 0, frame_data, &frame_length);
-        TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL_INT(0, ret);
 
         // Get the data from the frame
         ret = yahdlc_get_data(&state, &control_recv, frame_data, frame_length, recv_data,
@@ -143,11 +143,11 @@ void test_NackFrameControlField() {
 
         // Result should be frame_length minus start flag to be discarded and no bytes received
         TEST_ASSERT_EQUAL_INT(ret, ((int )frame_length - 1));
-        TEST_ASSERT_EQUAL_INT(recv_length, 0);
+        TEST_ASSERT_EQUAL_INT(0, recv_length);
 
         // Verify the control field information
-        TEST_ASSERT_EQUAL_INT(control_send.frame, control_recv.frame);
-        TEST_ASSERT_EQUAL_INT(control_send.recv_seq_no, control_recv.recv_seq_no);
+        TEST_ASSERT_EQUAL_INT(control_recv.frame, control_send.frame);
+        TEST_ASSERT_EQUAL_INT(control_recv.recv_seq_no, control_send.recv_seq_no);
     }
 }
 
@@ -173,14 +173,14 @@ void test_0To512BytesData() {
 
         ret = yahdlc_frame_data(&control_send, send_data, i, NULL,
                                 &estimated_frame_length);
-        TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL_INT(0, ret);
 
         ret = yahdlc_frame_data(&control_send, send_data, i, frame_data,
                                 &frame_length);
 
         // Check that frame length is maximum 2 bytes larger than data due to escape of FCS value
         TEST_ASSERT(frame_length <= ((i + 6) + 2));
-        TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL_INT(0, ret);
         TEST_ASSERT_EQUAL(estimated_frame_length, frame_length);
 
         recv_length = 0;
@@ -191,11 +191,11 @@ void test_0To512BytesData() {
 
         // Bytes to be discarded should be one byte less than frame length
         TEST_ASSERT_EQUAL_INT(ret, (frame_length - 1));
-        TEST_ASSERT_EQUAL_INT(recv_length, i);
+        TEST_ASSERT_EQUAL_INT(i, recv_length);
 
         // Compare the send and received bytes
         ret = memcmp(send_data, recv_data, i);
-        TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL_INT(0, ret);
     }
 }
 
@@ -217,7 +217,7 @@ void test_5BytesFrame() {
                           &recv_length);
 
     // Check that the decoded data will return invalid FCS error and 4 bytes to be discarded
-    TEST_ASSERT_EQUAL_INT(ret, -EIO);
+    TEST_ASSERT_EQUAL_INT(-EIO, ret);
     TEST_ASSERT_EQUAL_INT(recv_length, (sizeof(frame_data) - 1));
 }
 
@@ -242,23 +242,23 @@ void test_EndFlagSequenceInNewBuffer() {
 
     // Check that frame length is maximum 2 bytes larger than data due to escape of FCS value
     TEST_ASSERT(frame_length <= ((sizeof(send_data) + 6) + 2));
-    TEST_ASSERT_EQUAL_INT(ret, 0);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 
     // Decode the data up to end flag sequence byte which should return no valid messages error
     ret = yahdlc_get_data(&state, &control, frame_data, frame_length - 1, recv_data,
                           &recv_length);
-    TEST_ASSERT_EQUAL_INT(ret, -ENOMSG);
-    TEST_ASSERT_EQUAL_INT(recv_length, 0);
+    TEST_ASSERT_EQUAL_INT(-ENOMSG, ret);
+    TEST_ASSERT_EQUAL_INT(0, recv_length);
 
     // Now decode the end flag sequence byte which should result in a decoded frame
     ret = yahdlc_get_data(&state, &control, &frame_data[frame_length - 1], 1, recv_data,
                           &recv_length);
-    TEST_ASSERT_EQUAL_INT(ret, 0);
+    TEST_ASSERT_EQUAL_INT(0, ret);
     TEST_ASSERT_EQUAL_INT(recv_length, sizeof(send_data));
 
     // Make sure that the data is valid
     ret = memcmp(send_data, recv_data, sizeof(send_data));
-    TEST_ASSERT_EQUAL_INT(ret, 0);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 }
 
 
@@ -277,8 +277,8 @@ void test_FlagSequenceAndControlEscapeInData() {
                             &frame_length);
 
     // Length should be frame size (6) + 3 data bytes + 2 escaped characters = 11
-    TEST_ASSERT_EQUAL_INT(frame_length, 11);
-    TEST_ASSERT_EQUAL_INT(ret, 0);
+    TEST_ASSERT_EQUAL_INT(11, frame_length);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 
     // Decode the frame
     ret = yahdlc_get_data(&state, &control, frame_data, frame_length, recv_data,
@@ -288,7 +288,7 @@ void test_FlagSequenceAndControlEscapeInData() {
 
     // Make sure that the data is valid
     ret = memcmp(send_data, recv_data, sizeof(send_data));
-    TEST_ASSERT_EQUAL_INT(ret, 0);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 }
 
 
@@ -312,7 +312,7 @@ void test_getDataFromMultipleBuffers() {
 
     // Check that frame length is maximum 2 bytes larger than data due to escape of FCS value
     TEST_ASSERT(frame_length <= ((sizeof(send_data) + 6) + 2));
-    TEST_ASSERT_EQUAL_INT(ret, 0);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 
     // Run though the different buffers (simulating decode of buffers from UART)
     for (i = 0; i <= sizeof(send_data); i += buf_length) {
@@ -322,8 +322,8 @@ void test_getDataFromMultipleBuffers() {
 
         if (i < sizeof(send_data)) {
           // All chunks until the last should return no message and zero length
-          TEST_ASSERT_EQUAL_INT(ret, -ENOMSG);
-          TEST_ASSERT_EQUAL_INT(recv_length, 0);
+          TEST_ASSERT_EQUAL_INT(-ENOMSG, ret);
+          TEST_ASSERT_EQUAL_INT(0, recv_length);
         } else {
           // The last chunk should return max 6 frame bytes - 1 start flag sequence byte + 2 byte
           // for the possible escaped FCS = 7 bytes
@@ -334,7 +334,7 @@ void test_getDataFromMultipleBuffers() {
 
     // Make sure that the data is valid
     ret = memcmp(send_data, recv_data, sizeof(send_data));
-    TEST_ASSERT_EQUAL_INT(ret, 0);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 }
 
 
@@ -360,7 +360,7 @@ void test_MultipleFramesWithSingleFlagSequence() {
 
         // Check that frame length is maximum 2 bytes larger than data due to escape of FCS value
         TEST_ASSERT(frame_length <= ((sizeof(send_data) + 6) + 2));
-        TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL_INT(0, ret);
 
         // Remove the end flag sequence byte as there must only be one flag sequence byte between frames
         frame_index += frame_length - 1;
@@ -386,7 +386,7 @@ void test_MultipleFramesWithSingleFlagSequence() {
 
         // Compare the send and received bytes
         ret = memcmp(send_data, recv_data, sizeof(send_data));
-        TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL_INT(0, ret);
     }
 }
 
@@ -413,7 +413,7 @@ void test_MultipleFramesWithDoubleFlagSequence() {
 
         // Check that frame length is maximum 2 bytes larger than data due to escape of FCS value
         TEST_ASSERT(frame_length <= ((sizeof(send_data) + 6) + 2));
-        TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL_INT(0, ret);
 
         // Do not remove end flag sequence to test the silent discard of this additional byte
         frame_index += frame_length;
@@ -437,7 +437,7 @@ void test_MultipleFramesWithDoubleFlagSequence() {
 
         // Compare the send and received bytes
         ret = memcmp(send_data, recv_data, sizeof(send_data));
-        TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL_INT(0, ret);
     }
 }
 
@@ -459,7 +459,7 @@ void test_FramesWithBitErrors() {
         ret = yahdlc_frame_data(&control, send_data, sizeof(send_data), frame_data,
                                 &frame_length);
         TEST_ASSERT_EQUAL_INT(frame_length, (sizeof(send_data) + 6));
-        TEST_ASSERT_EQUAL_INT(ret, 0);
+        TEST_ASSERT_EQUAL_INT(0, ret);
 
         // Generate a single bit error in each byte in the frame
         frame_data[i] ^= 1;
@@ -470,11 +470,11 @@ void test_FramesWithBitErrors() {
 
         // The first and last buffer will return no message. The other data will return invalid FCS
         if ((i == 0) || (i == (frame_length - 1))) {
-            TEST_ASSERT_EQUAL_INT(ret, -ENOMSG);
-            TEST_ASSERT_EQUAL_INT(recv_length, 0);
+            TEST_ASSERT_EQUAL_INT(-ENOMSG, ret);
+            TEST_ASSERT_EQUAL_INT(0, recv_length);
         } else {
-            TEST_ASSERT_EQUAL_INT(ret, -EIO);
-            TEST_ASSERT_EQUAL_INT(recv_length, 6);
+            TEST_ASSERT_EQUAL_INT(-EIO, ret);
+            TEST_ASSERT_EQUAL_INT(6, recv_length);
         }
     }
 }
