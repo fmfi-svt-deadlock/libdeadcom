@@ -3,71 +3,11 @@
 #include "fff.h"
 
 #include "dcl2.h"
+#include "dcl2-fakes.c"
 
 /*
  * Tests of Deadcom Layer 2 library, part 2: Receiving and processing frames
  */
-
-DEFINE_FFF_GLOBALS;
-
-FAKE_VOID_FUNC(transmitBytes, uint8_t*, uint8_t);
-FAKE_VOID_FUNC(mutexInit, void*);
-FAKE_VOID_FUNC(mutexLock, void*);
-FAKE_VOID_FUNC(mutexUnlock, void*);
-FAKE_VOID_FUNC(condvarInit,  void*);
-FAKE_VALUE_FUNC(bool, condvarWait, void*, uint32_t);
-FAKE_VOID_FUNC(condvarSignal, void*);
-
-FAKE_VALUE_FUNC(int, yahdlc_frame_data, yahdlc_control_t*, const char*, unsigned int, char*,
-                unsigned int*);
-FAKE_VALUE_FUNC(int, yahdlc_get_data, yahdlc_state_t*, yahdlc_control_t*, const char*, unsigned int,
-                char*, unsigned int*);
-
-
-/* A fake framing implementation that produces inspectable frames in the following format:
- *
- * +-----------------------------+-------------+--------------------------------------------+
- * | control_structure           | message_len | message_bytes                              |
- * | (sizeof(yahdlc_control_t))  | 4 bytes     | message_len                                |
- * +-----------------------------+-------------+--------------------------------------------+
- */
-int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned int data_len,
-                         char *output_frame, unsigned int *output_frame_len) {
-
-    if (output_frame) {
-        // Control struct
-        memcpy(output_frame, control, sizeof(yahdlc_control_t));
-    }
-    *output_frame_len = sizeof(yahdlc_control_t);
-
-    if (data_len != 0) {
-        if (output_frame) {
-            // Message length
-            output_frame[(*output_frame_len)++] = (data_len >> 24) & 0xFF;
-            output_frame[(*output_frame_len)++] = (data_len >> 16) & 0xFF;
-            output_frame[(*output_frame_len)++] = (data_len >>  8) & 0xFF;
-            output_frame[(*output_frame_len)++] = (data_len >>  0) & 0xFF;
-        } else {
-            *output_frame_len += 4;
-        }
-
-        if (output_frame) {
-            // The message itself
-            memcpy(output_frame+(*output_frame_len), data, data_len);
-        }
-        *output_frame_len += data_len;
-    }
-}
-
-DeadcomL2ThreadingVMT t = {
-    &mutexInit,
-    &mutexLock,
-    &mutexUnlock,
-    &condvarInit,
-    &condvarWait,
-    &condvarSignal
-};
-
 
 int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                   unsigned int src_len, char* dest, unsigned int *dest_len) {
@@ -110,6 +50,11 @@ int get_data_fake_connack_frame(yahdlc_state_t *state, yahdlc_control_t *control
 }
 
 
+void setUp(void) {
+    FFF_FAKES_LIST(RESET_FAKE);
+    FFF_RESET_HISTORY();
+}
+
 /* == Generic processData tests ==================================================================*/
 
 // TODO what if yahdlc_get_data returns 0?
@@ -132,10 +77,6 @@ void test_PDFailsOnYahdlcFailure() {
     DeadcomL2 d;
     uint8_t data[] = {0, 1, 2, 3, 4, 5};
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-
     unsigned int seen_bytes = 0;
     int get_data_fake(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                       unsigned int src_len, char* dest, unsigned int *dest_len) {
@@ -155,10 +96,6 @@ void test_PDFailsOnYahdlcFailure() {
 void test_PDProcessesWholeBuffer() {
     DeadcomL2 d;
     uint8_t data[] = {0, 1, 2, 3, 4, 5};
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
 
     unsigned int seen_bytes = 0;
     int get_data_fake(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
@@ -188,11 +125,6 @@ void test_PDProcessDataWhenDisconnected() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_data_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -210,11 +142,6 @@ void test_PDProcessAckWhenDisconnected() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_ack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -232,11 +159,6 @@ void test_PDProcessNackWhenDisconnected() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_nack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -254,11 +176,6 @@ void test_PDProcessConnWhenDisconnected() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -282,11 +199,6 @@ void test_PDProcessConnAckWhenDisconnected() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_connack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -306,12 +218,6 @@ void test_PDProcessDataWhenConnecting() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(condvarSignal);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_data_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -334,12 +240,6 @@ void test_PDProcessAckWhenConnecting() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_ack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -362,12 +262,6 @@ void test_PDProcessNackWhenConnecting() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_nack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -390,12 +284,6 @@ void test_PDProcessConnWhenConnecting() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -424,12 +312,6 @@ void test_PDProcessConnAckWhenConnecting() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_connack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -453,12 +335,6 @@ void test_PDProcessAckWhenConnected() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_ack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -481,12 +357,6 @@ void test_PDProcessNackWhenConnected() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_nack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -509,12 +379,6 @@ void test_PDProcessConnWhenConnected() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -544,12 +408,6 @@ void test_PDProcessConnAckWhenConnected() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_connack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -571,12 +429,6 @@ void test_PDProcessAckWhenTransmitting() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_ack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -598,12 +450,6 @@ void test_PDProcessNackWhenTransmitting() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_nack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -625,12 +471,6 @@ void test_PDProcessConnWhenTransmitting() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -661,12 +501,6 @@ void test_PDProcessConnAckWhenTransmitting(){
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
     yahdlc_get_data_fake.custom_fake = &get_data_fake_connack_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
@@ -688,13 +522,6 @@ void test_PDDataCorrectSeq() {
     DeadcomL2 d;
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
 
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                       unsigned int src_len, char* dest, unsigned int *dest_len) {
@@ -728,13 +555,6 @@ void test_PDDataAlreadySeenNotAcked() {
     DeadcomL2 d;
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
 
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                       unsigned int src_len, char* dest, unsigned int *dest_len) {
@@ -771,13 +591,6 @@ void test_PDDataAlreadySeenAndAcked() {
     DeadcomL2 d;
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
 
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                       unsigned int src_len, char* dest, unsigned int *dest_len) {
@@ -824,13 +637,6 @@ void test_PDDataReceiveWithoutAck() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
-
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                       unsigned int src_len, char* dest, unsigned int *dest_len) {
         control->frame = YAHDLC_FRAME_DATA;
@@ -855,13 +661,8 @@ void test_PDDataReceiveWithoutAck() {
     TEST_ASSERT_EQUAL(DC_CONNECTED, d.state);
     TEST_ASSERT_EQUAL(1, d.recv_number);
 
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
+    FFF_FAKES_LIST(RESET_FAKE);
+    FFF_RESET_HISTORY();
 
     int get_data_fake_data_frame2(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                       unsigned int src_len, char* dest, unsigned int *dest_len) {
@@ -892,13 +693,6 @@ void test_PDDataIncorrectSeq() {
     DeadcomL2 d;
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(yahdlc_get_data);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(condvarSignal);
 
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
                       unsigned int src_len, char* dest, unsigned int *dest_len) {

@@ -3,71 +3,17 @@
 #include "fff.h"
 
 #include "dcl2.h"
+#include "dcl2-fakes.c"
 
 /*
  * Tests of Deadcom Layer 2 library, part 1: Initializing and transmitting frames
  */
 
-DEFINE_FFF_GLOBALS;
-
-FAKE_VOID_FUNC(transmitBytes, uint8_t*, uint8_t);
-FAKE_VOID_FUNC(mutexInit, void*);
-FAKE_VOID_FUNC(mutexLock, void*);
-FAKE_VOID_FUNC(mutexUnlock, void*);
-FAKE_VOID_FUNC(condvarInit,  void*);
-FAKE_VALUE_FUNC(bool, condvarWait, void*, uint32_t);
-FAKE_VOID_FUNC(condvarSignal, void*);
-
-FAKE_VALUE_FUNC(int, yahdlc_frame_data, yahdlc_control_t*, const char*, unsigned int, char*,
-                unsigned int*);
-FAKE_VALUE_FUNC(int, yahdlc_get_data, yahdlc_state_t*, yahdlc_control_t*, const char*, unsigned int,
-                char*, unsigned int*);
-
-
-/* A fake framing implementation that produces inspectable frames in the following format:
- *
- * +-----------------------------+-------------+--------------------------------------------+
- * | control_structure           | message_len | message_bytes                              |
- * | (sizeof(yahdlc_control_t))  | 4 bytes     | message_len                                |
- * +-----------------------------+-------------+--------------------------------------------+
- */
-int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned int data_len,
-                         char *output_frame, unsigned int *output_frame_len) {
-
-    if (output_frame) {
-        // Control struct
-        memcpy(output_frame, control, sizeof(yahdlc_control_t));
-    }
-    *output_frame_len = sizeof(yahdlc_control_t);
-
-    if (data_len != 0) {
-        if (output_frame) {
-            // Message length
-            output_frame[(*output_frame_len)++] = (data_len >> 24) & 0xFF;
-            output_frame[(*output_frame_len)++] = (data_len >> 16) & 0xFF;
-            output_frame[(*output_frame_len)++] = (data_len >>  8) & 0xFF;
-            output_frame[(*output_frame_len)++] = (data_len >>  0) & 0xFF;
-        } else {
-            *output_frame_len += 4;
-        }
-
-        if (output_frame) {
-            // The message itself
-            memcpy(output_frame+(*output_frame_len), data, data_len);
-        }
-        *output_frame_len += data_len;
-    }
+void setUp(void) {
+    FFF_FAKES_LIST(RESET_FAKE);
+    FFF_RESET_HISTORY();
 }
 
-
-DeadcomL2ThreadingVMT t = {
-    &mutexInit,
-    &mutexLock,
-    &mutexUnlock,
-    &condvarInit,
-    &condvarWait,
-    &condvarSignal
-};
 
 // TODO all asserts are backwards, expected and actial are swapped...
 
@@ -75,9 +21,6 @@ DeadcomL2ThreadingVMT t = {
 
 void test_ValidInit() {
     DeadcomL2 d;
-
-    RESET_FAKE(mutexInit);
-    RESET_FAKE(condvarInit);
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
 
     TEST_ASSERT_EQUAL(res, DC_OK);
@@ -109,14 +52,6 @@ void test_InvalidConnectionParams() {
 
 void test_ValidConnection() {
     DeadcomL2 d;
-
-    RESET_FAKE(mutexInit);
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(condvarInit);
-    RESET_FAKE(condvarWait);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
 
     int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned int data_len,
                         char *data_out, unsigned int *data_out_len) {
@@ -171,14 +106,6 @@ void test_ConnectionNoResponse() {
     // verify only what happens when we won't receive a response.
     DeadcomL2 d;
 
-    RESET_FAKE(mutexInit);
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(condvarInit);
-    RESET_FAKE(condvarWait);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(res, DC_OK);
@@ -206,11 +133,6 @@ void test_ConnectionNoResponse() {
 void test_ConnectionNoOpWhenConnected() {
     DeadcomL2 d;
 
-    RESET_FAKE(mutexInit);
-    RESET_FAKE(condvarWait);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(res, DC_OK);
@@ -237,11 +159,6 @@ void test_ConnectionNoOpWhenConnected() {
 void test_ConnectionFailWhenAlreadyConnecting() {
     DeadcomL2 d;
 
-    RESET_FAKE(mutexInit);
-    RESET_FAKE(condvarWait);
-    RESET_FAKE(yahdlc_frame_data);
-    RESET_FAKE(transmitBytes);
-
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(res, DC_OK);
@@ -267,9 +184,6 @@ void test_ConnectionFailWhenAlreadyConnecting() {
 void test_disconnectWhenDisconnected() {
     DeadcomL2 d;
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(res, DC_OK);
@@ -289,9 +203,6 @@ void test_disconnectWhenDisconnected() {
 
 void test_disconnectWhenConnecting() {
     DeadcomL2 d;
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
 
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
@@ -315,9 +226,6 @@ void test_disconnectWhenConnecting() {
 
 void test_disconnectWhenConnected() {
     DeadcomL2 d;
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
 
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
@@ -344,10 +252,6 @@ void test_disconnectWhenConnected() {
 
 void test_SendMessageInvalidParams() {
     DeadcomL2 d;
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(transmitBytes);
 
     const uint8_t message[] = {0x42, 0x47};
 
@@ -387,10 +291,6 @@ void test_SendMessageInvalidParams() {
 
 void test_SendMessageInvalidState() {
     DeadcomL2 d;
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(transmitBytes);
 
     const uint8_t message[] = {0x42, 0x47};
 
@@ -438,11 +338,9 @@ void test_SendMessageWithAcknowledgment() {
     unsigned int sseq, rseq;
     for (sseq = 0; sseq <= 7; sseq++) {
         for (rseq = 0; rseq <= 7; rseq++) {
-            RESET_FAKE(mutexLock);
-            RESET_FAKE(mutexUnlock);
-            RESET_FAKE(condvarWait);
-            RESET_FAKE(transmitBytes);
-            RESET_FAKE(yahdlc_frame_data)
+            FFF_FAKES_LIST(RESET_FAKE);
+            FFF_RESET_HISTORY();
+
             yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
             const uint8_t message[] = {0x42, 0x47};
@@ -508,11 +406,9 @@ void test_SendMessageWhenNacked() {
 
     unsigned int nack_number;
     for (nack_number = 1; nack_number < DEADCOM_MAX_FAILURE_COUNT; nack_number++) {
-        RESET_FAKE(mutexLock);
-        RESET_FAKE(mutexUnlock);
-        RESET_FAKE(condvarWait);
-        RESET_FAKE(transmitBytes);
-        RESET_FAKE(yahdlc_frame_data)
+        FFF_FAKES_LIST(RESET_FAKE);
+        FFF_RESET_HISTORY();
+
         yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
         const uint8_t message[] = {0x42, 0x47};
@@ -579,11 +475,9 @@ void test_SendMessageWhenTimeout() {
 
     unsigned int timeout_number;
     for (timeout_number = 1; timeout_number < DEADCOM_MAX_FAILURE_COUNT; timeout_number++) {
-        RESET_FAKE(mutexLock);
-        RESET_FAKE(mutexUnlock);
-        RESET_FAKE(condvarWait);
-        RESET_FAKE(transmitBytes);
-        RESET_FAKE(yahdlc_frame_data)
+        FFF_FAKES_LIST(RESET_FAKE);
+        FFF_RESET_HISTORY();
+
         yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
         const uint8_t message[] = {0x42, 0x47};
@@ -648,11 +542,6 @@ void test_SendMessageWhenTimeout() {
 void test_SendMessageFailTooManyNacks() {
     DeadcomL2 d;
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(condvarWait);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(yahdlc_frame_data)
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
     const uint8_t message[] = {0x42, 0x47};
@@ -703,11 +592,6 @@ void test_SendMessageFailTooManyNacks() {
 void test_SendMessageFailTooManyTimeouts() {
     DeadcomL2 d;
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(condvarWait);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(yahdlc_frame_data)
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
     const uint8_t message[] = {0x42, 0x47};
@@ -758,11 +642,6 @@ void test_SendMessageFailTooManyTimeouts() {
 void test_SendMessageOtherStationDropsLink() {
     DeadcomL2 d;
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-    RESET_FAKE(condvarWait);
-    RESET_FAKE(transmitBytes);
-    RESET_FAKE(yahdlc_frame_data)
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
     const uint8_t message[] = {0x42, 0x47};
@@ -812,9 +691,6 @@ void test_GetMessageLengthInvalidParams() {
 void test_GetMessageLengthNoMessagePending() {
     DeadcomL2 d;
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(res, DC_OK);
@@ -829,9 +705,6 @@ void test_GetMessageLengthNoMessagePending() {
 
 void test_GetMessageLength() {
     DeadcomL2 d;
-
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
 
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
@@ -867,9 +740,6 @@ void test_GetMessageInvalidParams() {
 void test_GetMessageNoMessagePending() {
     DeadcomL2 d;
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
-
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(res, DC_OK);
@@ -889,9 +759,9 @@ void test_GetMessage() {
 
     unsigned int recv;
     for (recv = 0; recv <= 7; recv++) {
-        RESET_FAKE(mutexLock);
-        RESET_FAKE(mutexUnlock);
-        RESET_FAKE(transmitBytes);
+        FFF_FAKES_LIST(RESET_FAKE);
+        FFF_RESET_HISTORY();
+        yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
         // Initialize the lib
         DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
