@@ -1,0 +1,59 @@
+DeadCom libraries
+=================
+
+This repository hosts specification of Deadlock communication protocols and libraries that implement
+them.
+
+Those libraries are written in a way that makes them easy to integrate with embedded firmware of
+Deadlock components. There are, in general, 2 categories of embedded firmwares used in this project:
+
+  - Written in plain C, based on ChibiOS
+  - Written in Python, running on some embedded Linux platform
+
+Therefore, if a library implemented here is intended to be used with embedded components, then it is
+written in plain-C with (optional) Python bindings. If a library is designed to be used in
+multithreaded systems it uses only features that ChibiOS can provide.
+
+
+Reader Physical Interface
+-------------------------
+
+These docs describe the physical interface for interconnecting Readers and Controllers
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Reader Physical Interface
+    :hidden:
+
+    reader-phys/interface
+
+
+Deadcom Layer 2 (``dcl2``)
+--------------------------
+
+DeadCom Layer 2 is a protocol based on (or inspired by) HDLC. It provides a reliable datagram
+communication between 2 devices over unreliable byte-oriented point-to-point link (such as RS232
+connection). Its implementation is based on open-source project yahdlc with modifications for our
+use-case.
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Deadcom Layer 2
+    :hidden:
+
+    dcl2/protocol
+    dcl2/c-api
+
+
+Deadcom Reader-Controller Protocol (``dcrcp``)
+----------------------------------------------
+
+DeadCom Reader<->Controller Protocol is an application protocol used by Reader and Controller.
+This library is designed for use with 2 threads: one receive thread and one transmit thread.
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Deadcom Reader Protocol (dcrcp)
+    :hidden:
+
+    dcrcp/protocol

@@ -147,8 +147,8 @@ typedef struct {
  *                       This function should be blocking and return after all bytes were
  *                       transmitted.
  *
- * @return DC_OK  DeadCom Layer 2 object initialized successfully
- *         DC_FAILURE  Invalid parameters
+ * @retval DC_OK  DeadCom Layer 2 object initialized successfully
+ * @retval DC_FAILURE  Invalid parameters
  */
 DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *mutex_p, void *condvar_p,
                        DeadcomL2ThreadingVMT *t, void (*transmitBytes)(uint8_t*, uint8_t));
@@ -167,9 +167,9 @@ DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *mutex_p, void *condvar_p,
  *
  * @return DC_OK  The link is now in the connected state, or previously has been in an connected
  *                state.
- *         DC_NOT_CONNECTED  The other station has not responded to our request for link
+ * @retval DC_NOT_CONNECTED  The other station has not responded to our request for link
  *                            establishment.
- *         DC_FAILURE  Invalid parameters or connection attempt already in progress
+ * @retval DC_FAILURE  Invalid parameters or connection attempt already in progress
  */
 DeadcomL2Result dcConnect(DeadcomL2 *deadcom);
 
@@ -181,9 +181,9 @@ DeadcomL2Result dcConnect(DeadcomL2 *deadcom);
  *
  * @param[in] deadcom  Instance of DeadCom link (open or closed)
  *
- * @return DC_OK  The link close operation will always succeed, independently of what the other
+ * @retval DC_OK  The link close operation will always succeed, independently of what the other
  *                station may think.
- *         DC_FAILURE  Attempted to disconnect currently connecting link or invalid parameters
+ * @retval DC_FAILURE  Attempted to disconnect currently connecting link or invalid parameters
  */
 DeadcomL2Result dcDisconnect(DeadcomL2 *deadcom);
 
@@ -203,12 +203,12 @@ DeadcomL2Result dcDisconnect(DeadcomL2 *deadcom);
  * @param[in] message  Message to be transmitted
  * @param[in] message_len  Length of the message to be transmitted
  *
- * @returns DC_OK  If the transmission succeeded and the receiving station has acknowledged the
+ * @retval  DC_OK  If the transmission succeeded and the receiving station has acknowledged the
  *                 message
- *          DC_NOT_CONNECTED  If the link is not in the connected state
- *          DC_LINK_RESET  If the tranission has failed / receiving station failed to acknowledge
+ * @retval  DC_NOT_CONNECTED  If the link is not in the connected state
+ * @retval  DC_LINK_RESET  If the tranission has failed / receiving station failed to acknowledge
  *                         the frame and the link has been reset as the result.
- *          DC_FAILURE  Incorrect parameters or message too long
+ * @retval  DC_FAILURE  Incorrect parameters or message too long
  */
 DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, const uint8_t *message,
                               const uint8_t message_len);
@@ -247,13 +247,13 @@ int16_t dcGetReceivedMsgLen(DeadcomL2 *deadcom);
  * the link.
  *
  * @param[in] deadcom  Instance of an open DeadCom link
- * @param[out] message  Buffer the message will be stored in. It should be big enough to accomodate
+ * @param[out] buffer  Buffer the message will be stored in. It should be big enough to accomodate
  *                      the whole message. Use `dcGetReceivedMsgLen` to get length of the message
  *                      in the buffer.
  *
- * @return Length of the received message which was copied to the buffer,
- *         DC_E_NOMSG if no data were copied because no message was present
- *         DC_E_FAIL  if parameters are invalid
+ * @retval integer    Length of the received message which was copied to the buffer,
+ * @retval DC_E_NOMSG if no data were copied because no message was present
+ * @retval DC_E_FAIL  if parameters are invalid
  */
 int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer);
 
