@@ -32,10 +32,10 @@ DCL2_SRC      = $(shell find $(DCL2_SOURCE) -type f -name '*.c')
 
 T_DCL2UNIT_INCDIR     = $(UNITY) $(FFF) $(DCL2_INCLUDE)
 T_DCL2UNIT_INCPARAMS  = $(foreach d, $(T_DCL2UNIT_INCDIR), -I$d)
-T_DCL2UNIT_SUB        = unit/
+T_DCL2UNIT_SUB        = dcl2-unit/
 T_DCL2UNIT_CSRC       = $(shell find $(TEST_PATH)$(T_DCL2UNIT_SUB) -type f -regextype sed -regex '.*-test[0-9]*\.c')
 
-$(TEST_OBJS)unit/%-under_test.o: %.c
+$(TEST_OBJS)$(T_DCL2UNIT_SUB)%-under_test.o: %.c
 	@echo 'Compiling $<'
 	@mkdir -p `dirname $@`
 	@$(TEST_CC) $(TEST_CFLAGS) -c $< -o $@
