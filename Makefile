@@ -91,12 +91,13 @@ T_DCL2INTG_CSRC       = $(shell find $(TEST_PATH)$(T_DCL2INTG_SUB) -type f -rege
 $(TEST_BUILD)$(T_DCL2INTG_SUB)%.out: build/dcl2-pthread.so $(TEST_OBJS)$(T_DCL2INTG_SUB)%.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCL2INTG_SUB)%-runner.o
 	@echo 'Linking test $@'
 	@mkdir -p `dirname $@`
-	@$(TEST_LD) $(TEST_LDFLAGS) -o $@ $^
+	@$(TEST_LD) $(TEST_OBJS)$(T_DCL2INTG_SUB)$*.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCL2INTG_SUB)$*-runner.o -o $@ $(TEST_LDFLAGS)
 
 T_DCL2INTG_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.result,$(T_DCL2INTG_CSRC))
 T_DCL2INTG_EXECS = $(patsubst $(TEST_RESULTS)%.result,$(TEST_BUILD)%.out,$(T_DCL2INTG_RESULTS))
 
 run-dcl2intg-tests: TEST_CFLAGS = -I. $(T_DCL2INTG_INCPARAMS) -DTEST -g -Wno-trampolines
+run-dcl2intg-tests: TEST_LDFLAGS = -lpthread -L. -l:build/dcl2-pthread.so
 run-dcl2intg-tests: $(TEST_BUILD_PATHS) $(T_DCL2INTG_EXECS) $(T_DCL2INTG_RESULTS) print-summary
 
 #

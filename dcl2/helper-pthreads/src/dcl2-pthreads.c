@@ -22,10 +22,11 @@ void dcl_pthreads_mutexUnlock(void *mutex_p) {
 
 
 void dcl_pthreads_condvarInit(void *condvar_p) {
+    dcl2_pthread_cond_t *c = (dcl2_pthread_cond_t*) condvar_p;
     pthread_condattr_t attr;
     pthread_condattr_init(&attr);
     pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
-    pthread_cond_init((pthread_cond_t*) condvar_p, &attr);
+    pthread_cond_init(c->cond, &attr);
 }
 
 
@@ -33,10 +34,10 @@ bool dcl_pthreads_condvarWait(void *condvar_p, uint32_t milliseconds) {
     dcl2_pthread_cond_t *c = (dcl2_pthread_cond_t*) condvar_p;
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    ts.tv_sec  += milliseconds / 10^3;
-    ts.tv_nsec += ((milliseconds % 10^3) * 10^6);
-    ts.tv_sec  += ts.tv_nsec / 10^9;
-    ts.tv_nsec %= 10^9;
+    ts.tv_sec  += milliseconds / 1000;
+    ts.tv_nsec += ((milliseconds % 1000) * 1000000);
+    ts.tv_sec  += ts.tv_nsec / 1000000000;
+    ts.tv_nsec %= 1000000000;
 
     int ret = pthread_cond_timedwait(c->cond, c->mutx, &ts);
     return (ret != ETIMEDOUT);
