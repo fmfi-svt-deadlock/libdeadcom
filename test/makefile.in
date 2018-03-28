@@ -57,8 +57,7 @@ $(TEST_RESULTS)%.result: $(TEST_BUILD)%.out
 	@echo "*"
 	@echo '* ----- Running test $<:'
 	@mkdir -p `dirname $@`
-	@-$(TEST_RUN_WRAPPER) ./$< > $@ 2>&1
-	@sed -e 's/^/* /' $@
+	@-sh -c "$(TEST_RUN_WRAPPER) ./$< | tee $@ | sed -e 's/^/* /'" 2>&1
 	@echo "*"
 	@echo "******************************************************************************"
 	@echo
