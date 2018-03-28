@@ -4,3 +4,6 @@
 [submodule "deps/fff"]
 	path = deps/fff
 	url = https://github.com/meekrosoft/fff.git
+[submodule "deps/pipe"]
+	path = deps/pipe
+	url = https://github.com/cgaebel/pipe.git

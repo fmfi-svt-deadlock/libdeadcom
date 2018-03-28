@@ -57,3 +57,21 @@ This library is designed for use with 2 threads: one receive thread and one tran
     :hidden:
 
     dcrcp/protocol
+
+
+Leaky Pipe (``leaky-pipe``)
+---------------------------
+
+Thread-safe byte-oriented point-to-point link emulator with configurable deterministic
+unreliability. This is basically a thread-safe blocking queue (based on open-source project
+`pipe` https://github.com/cgaebel/pipe), limited so that it only transfers bytes and loses or
+corrupts data (leaks added).
+
+Primarily intended for testing other protocol libraries in this repo.
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Leaky Pipe
+    :hidden:
+
+    leaky-pipe/api
