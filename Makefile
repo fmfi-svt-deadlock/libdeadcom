@@ -27,7 +27,7 @@ DCL2_SRC      = $(shell find $(DCL2_SOURCE) -type f -name '*.c')
 
 
 ##############################################################################
-# Start of Unit Testing with Unity rules
+# Start of Unity rules for DCL2 Unit tests
 #
 
 T_DCL2UNIT_INCDIR     = $(UNITY) $(FFF) $(DCL2_INCLUDE)
@@ -42,8 +42,8 @@ $(TEST_OBJS)$(T_DCL2UNIT_SUB)%-under_test.o: %.c
 	@objcopy --weaken $@
 
 .SECONDEXPANSION:
-FILE_UNDER_TEST := sed -e 's|$(TEST_BUILD)\(.*\)-test[0-9]*\.out|$(TEST_OBJS)\1-under_test.o|'
-$(TEST_BUILD)%.out: $$(shell echo $$@ | $$(FILE_UNDER_TEST)) $(TEST_OBJS)%.o $(TEST_OBJS)unity.o $(TEST_OBJS)%-runner.o
+FILE_UNDER_TEST := sed -e 's|$(TEST_BUILD)$(T_DCL2UNIT_SUB)\(.*\)-test[0-9]*\.out|$(TEST_OBJS)$(T_DCL2UNIT_SUB)\1-under_test.o|'
+$(TEST_BUILD)$(T_DCL2UNIT_SUB)%.out: $$(shell echo $$@ | $$(FILE_UNDER_TEST)) $(TEST_OBJS)$(T_DCL2UNIT_SUB)%.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCL2UNIT_SUB)%-runner.o
 	@echo 'Linking test $@'
 	@mkdir -p `dirname $@`
 	@$(TEST_LD) $(TEST_LDFLAGS) -o $@ $^
@@ -55,7 +55,7 @@ run-dcl2unit-tests: TEST_CFLAGS = -I. $(T_DCL2UNIT_INCPARAMS) -DTEST -g -Wno-tra
 run-dcl2unit-tests: $(TEST_BUILD_PATHS) $(T_DCL2_UNIT_EXECS) $(T_DCL2_UNIT_RESULTS) print-summary
 
 #
-# End of Unit Testing with Unity rules
+# End of Unity rules for DCL2 Unit tests
 ##############################################################################
 
 
@@ -76,6 +76,31 @@ build/dcl2-pthread.so: $(DCL2_SRC) $(DCL2_PTHREADS_SRC)
 
 #
 # End of pthread DeadCom Shared Object
+##############################################################################
+
+
+##############################################################################
+# Start of Unity rules for DCL2 integration tests (backed by pthreads)
+#
+
+T_DCL2INTG_INCDIR     = $(UNITY) $(FFF) $(DCL2_INCLUDE) $(DCL2_PTHREADS_INCLUDE)
+T_DCL2INTG_INCPARAMS  = $(foreach d, $(T_DCL2INTG_INCDIR), -I$d)
+T_DCL2INTG_SUB        = dcl2-integration/
+T_DCL2INTG_CSRC       = $(shell find $(TEST_PATH)$(T_DCL2INTG_SUB) -type f -regextype sed -regex '.*test[0-9]*\.c')
+
+$(TEST_BUILD)$(T_DCL2INTG_SUB)%.out: build/dcl2-pthread.so $(TEST_OBJS)$(T_DCL2INTG_SUB)%.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCL2INTG_SUB)%-runner.o
+	@echo 'Linking test $@'
+	@mkdir -p `dirname $@`
+	@$(TEST_LD) $(TEST_LDFLAGS) -o $@ $^
+
+T_DCL2INTG_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.result,$(T_DCL2INTG_CSRC))
+T_DCL2INTG_EXECS = $(patsubst $(TEST_RESULTS)%.result,$(TEST_BUILD)%.out,$(T_DCL2INTG_RESULTS))
+
+run-dcl2intg-tests: TEST_CFLAGS = -I. $(T_DCL2INTG_INCPARAMS) -DTEST -g -Wno-trampolines
+run-dcl2intg-tests: $(TEST_BUILD_PATHS) $(T_DCL2INTG_EXECS) $(T_DCL2INTG_RESULTS) print-summary
+
+#
+# End of Unity rules for DCL2 integration tests (backed by pthreads)
 ##############################################################################
 
 clean:

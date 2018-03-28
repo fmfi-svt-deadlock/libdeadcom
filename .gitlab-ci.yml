@@ -4,11 +4,17 @@ stages:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
-test-libs:
+test-dcl2-unit:
     stage: test
     image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
     script:
-        - make test
+        - make run-dcl2unit-tests
+
+test-dcl2-integration:
+    stage: test
+    image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
+    script:
+        - make run-dcl2intg-tests
 
 test-build-docs:
     stage: test
