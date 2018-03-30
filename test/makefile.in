@@ -14,7 +14,7 @@ TEST_RESULTS  	 = build/test/results/
 TEST_RUNNERS  	 = build/test/runners/
 TEST_BUILD_PATHS = $(TEST_BUILD) $(TEST_OBJS) $(TEST_RESULTS) $(TEST_RUNNERS)
 
-TEST_RUN_WRAPPER = valgrind -q --track-origins=yes
+TEST_RUN_WRAPPER = valgrind -q --track-origins=yes --suppressions=test/valgrind-musl.supp
 TEST_CC          = gcc
 TEST_LD          = gcc
 TEST_CFLAGS      = -I. -DTEST -g
