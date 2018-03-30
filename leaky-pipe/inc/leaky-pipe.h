@@ -78,7 +78,7 @@ typedef struct {
      *  - add_list = {(0, 0xF0), (0, 0x0D), (4, 0xFF)}
      *
      *  - bytes to be transmitted: {0x10, 0x15, 0x20, 0x25, 0x30}
-     *  - result: {0xF0 (a), 0x0D (a), 0x04 (c), 0x15 (ok), (d), (d), 0xFF (a)}
+     *  - result: {0xF0 (a), 0x0D (a), 0x04 (c), 0x15 (ok), (d), (d), 0xFF (a), 0x30 (ok)}
      */
     lp_corrupt_def_t *add_list;
     /**
@@ -143,6 +143,14 @@ void lp_init_args(lp_args_t *args);
  * @param[in] args  A structure specifying pipe faults
  */
 void lp_init(leaky_pipe_t *lp, lp_args_t *args);
+
+
+/**
+ * @brief Free resources associated with the leaky pipe
+ *
+ * @param[in] lp  Leaky pipe to be decommissioned
+ */
+void lp_free(leaky_pipe_t *lp);
 
 
 /**
