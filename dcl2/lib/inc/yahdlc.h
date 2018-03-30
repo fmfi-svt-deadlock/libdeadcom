@@ -84,6 +84,7 @@ typedef struct {
     int src_index;
     int frame_byte_index;
     int dest_index;
+    char frame_control;
 } yahdlc_state_t;
 
 /**

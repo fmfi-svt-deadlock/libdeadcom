@@ -108,12 +108,12 @@ build/leaky-pipe.so: $(LP_SRC)
 # Start of Unity rules for DCL2 integration tests (backed by pthreads)
 #
 
-T_DCL2INTG_INCDIR     = $(UNITY) $(FFF) $(DCL2_INCLUDE) $(DCL2_PTHREADS_INCLUDE)
+T_DCL2INTG_INCDIR     = $(UNITY) $(FFF) $(DCL2_INCLUDE) $(DCL2_PTHREADS_INCLUDE) $(LP_INCLUDE) $(PIPE_INCLUDE)
 T_DCL2INTG_INCPARAMS  = $(foreach d, $(T_DCL2INTG_INCDIR), -I$d)
 T_DCL2INTG_SUB        = dcl2-integration/
 T_DCL2INTG_CSRC       = $(shell find $(TEST_PATH)$(T_DCL2INTG_SUB) -type f -regextype sed -regex '.*test[0-9]*\.c')
 
-$(TEST_BUILD)$(T_DCL2INTG_SUB)%.out: build/dcl2-pthread.so $(TEST_OBJS)$(T_DCL2INTG_SUB)%.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCL2INTG_SUB)%-runner.o
+$(TEST_BUILD)$(T_DCL2INTG_SUB)%.out: build/dcl2-pthread.so build/leaky-pipe.so $(TEST_OBJS)$(T_DCL2INTG_SUB)%.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCL2INTG_SUB)%-runner.o
 	@echo 'Linking test $@'
 	@mkdir -p `dirname $@`
 	@$(TEST_LD) $(TEST_OBJS)$(T_DCL2INTG_SUB)$*.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCL2INTG_SUB)$*-runner.o -o $@ $(TEST_LDFLAGS)
@@ -122,7 +122,8 @@ T_DCL2INTG_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.testresults,$(T
 T_DCL2INTG_EXECS = $(patsubst $(TEST_RESULTS)%.testresults,$(TEST_BUILD)%.out,$(T_DCL2INTG_RESULTS))
 
 run-dcl2intg-tests: TEST_CFLAGS = -I. $(T_DCL2INTG_INCPARAMS) -DTEST -g -Wno-trampolines
-run-dcl2intg-tests: TEST_LDFLAGS = -lpthread -L. -l:build/dcl2-pthread.so
+run-dcl2intg-tests: TEST_LDFLAGS = -lpthread -L. -l:build/dcl2-pthread.so -l:build/leaky-pipe.so
+run-dcl2intg-tests: DCL2_PTHREADS_CFLAGS += -g
 run-dcl2intg-tests: $(TEST_BUILD_PATHS) $(T_DCL2INTG_EXECS) $(T_DCL2INTG_RESULTS) print-summary
 
 #

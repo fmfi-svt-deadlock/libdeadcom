@@ -35,6 +35,9 @@ This file was modified for use in Project Deadlock (component libdeadcom). Notab
   - Calling yahdlc_frame_data with NULL destination buffer will now compute the length of required
     buffer
   - Fix valgrind-revealed uninitialized vars
+  - Return valid control struct from yahdlc_get_data if and only if return value is >= 0
+    (and therefore valid frame was received), so that caller doesn't have to keep track of control
+    struct from previous calls when parsing byte-by-byte from serial link.
 */
 
 #include "yahdlc.h"
@@ -206,6 +209,7 @@ void yahdlc_reset_state(yahdlc_state_t *state) {
     state->src_index = state->dest_index = 0;
     state->control_escape = 0;
     state->frame_byte_index = 0;
+    state->frame_control = 0;
 }
 
 
@@ -261,7 +265,7 @@ int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const char
 
                 if (state->frame_byte_index == 1) {
                     // Control field is the second byte after the start flag sequence
-                    *control = yahdlc_get_control_type(value);
+                    state->frame_control = value;
                 } else if (state->src_index > (state->start_index + 2)) {
                     // Start adding the data values after the Control field to the buffer
                     dest[state->dest_index++] = value;
@@ -286,6 +290,8 @@ int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const char
             *dest_len = i;
             ret = -EIO;
         } else {
+            // Good frame. Decode control byte
+            *control = yahdlc_get_control_type(state->frame_control);
             // Return success and indicate that data up to end flag sequence in buffer should be
             // discarded
             *dest_len = state->dest_index - sizeof(state->fcs);
