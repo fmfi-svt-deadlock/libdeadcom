@@ -70,7 +70,7 @@ print-summary:
 	@echo "FAIL:   `for i in $(TEST_RESULTS); do grep -r -s :FAIL $$i; done | wc -l`"
 	@echo
 	@echo "DONE"
-	@if [ "`for i in $(TEST_RESULTS); do grep -s FAIL $$i; done | wc -l`" != 0 ]; then \
+	@if [ "`for i in $(TEST_RESULTS); do grep -r -s FAIL $$i; done | wc -l`" != 0 ]; then \
 	exit 1; \
 	fi
 
