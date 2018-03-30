@@ -8,6 +8,8 @@
 #ifndef __LEAKY_PIPE_H
 #define __LEAKY_PIPE_H
 
+#include <stdint.h>
+#include <pthread.h>
 #include "pipe.h"
 
 
@@ -43,22 +45,22 @@ typedef struct {
      * Example: If this list contains values {0, 3, 4}, then  the first, fourth and fifth
      * transmitted bytes will never arrive at the destination. Tragic.
      */
-    unsigned int *drop_packets_list;
+    unsigned int *drop_list;
     /**
-     * Length of the `drop_packets_list` array
+     * Length of the `drop_list` array
      */
-    unsigned int drop_packets_list_len;
+    unsigned int drop_list_len;
 
     /**
      * A list of errors to be introduced to the transmission. Structs in this array must be sorted
      * by member `.position` from lowest to highest. If position matches the byte that is currently
      * being transmitted, it will be XORed with `.value`.
      */
-    lp_corrupt_def_t *corrupt_packets_list;
+    lp_corrupt_def_t *corrupt_list;
     /**
-     * Length of the `corrupt_packets_list` array
+     * Length of the `corrupt_list` array
      */
-    unsigned int corrupt_packets_list_len;
+    unsigned int corrupt_list_len;
 
     /**
      * A list of bytes to be added to the transmission. Structs in this array must be sorted by
@@ -68,31 +70,31 @@ typedef struct {
      * transmitted immediatelly after first byte.
      *
      * These bytes *do not* increase the counter of sent bytes, and therefore do not affect
-     * `drop_packets_list` and `corrupt_packets_list`.
+     * `drop_list` and `corrupt_list`.
      *
      * Example:
-     *  - drop_packets_list = {2, 3}
-     *  - corrupt_packets_list = {(0, 20), (3, 20)}
-     *  - add_packets_list = {(0, 0xF0), (0, 0x0D), (4, 0xFF)}
+     *  - drop_list = {2, 3}
+     *  - corrupt_list = {(0, 20), (3, 20)}
+     *  - add_list = {(0, 0xF0), (0, 0x0D), (4, 0xFF)}
      *
      *  - bytes to be transmitted: {0x10, 0x15, 0x20, 0x25, 0x30}
      *  - result: {0xF0 (a), 0x0D (a), 0x04 (c), 0x15 (ok), (d), (d), 0xFF (a)}
      */
-    lp_corrupt_def_t *add_packets_list;
+    lp_corrupt_def_t *add_list;
     /**
-     * Length of the `add_packets_list` array
+     * Length of the `add_list` array
      */
-    unsigned int add_packets_list_len;
+    unsigned int add_list_len;
 
     /**
      * Probability of dropping each packet.
      */
-    float drop_packet_probability;
+    float drop_prob;
 
     /**
      * Probability of corrupting each packet with single-bit error.
      */
-    float corrupt_packet_probability;
+    float corrupt_prob;
 
     /**
      * Probability of adding a packet. Opportunity to add opens after each transmitted packet
@@ -100,7 +102,7 @@ typedef struct {
      * send noise endlessly after first transmitted packet, and lp_transmit function will never
      * return. Take care!.
      */
-    float add_packet_probability;
+    float add_prob;
 } lp_args_t;
 
 /**
@@ -109,10 +111,14 @@ typedef struct {
  * Internals of this structure should be touched only by this library.
  */
 typedef struct {
-    producer_t *pipe_producer;
-    consumer_t *pipe_consumer;
-    char *random_state;
-    long correct_byte_counter;
+    pipe_producer_t *pipe_producer;
+    pipe_consumer_t *pipe_consumer;
+    pthread_mutex_t mutex;
+    unsigned int random_state;
+    long byte_counter;
+    unsigned int drop_list_cntr;
+    unsigned int corrupt_list_cntr;
+    unsigned int add_list_cntr;
     lp_args_t holes;
 } leaky_pipe_t;
 
@@ -149,7 +155,7 @@ void lp_init(leaky_pipe_t *lp, lp_args_t *args);
  *
  * This function is thread-safe.
  */
-void lp_transmit(leaky_pipe_t *lp);
+void lp_transmit(leaky_pipe_t *lp, uint8_t byte);
 
 
 /**
@@ -164,6 +170,6 @@ void lp_transmit(leaky_pipe_t *lp);
  *
  * @return Number of bytes received from the pipe.
  */
-unsigned int lp_receive(leaky_pipe_t *lp, unit8_t *buffer, unsigned int buffer_size);
+unsigned int lp_receive(leaky_pipe_t *lp, uint8_t *buffer, unsigned int buffer_size);
 
 #endif
