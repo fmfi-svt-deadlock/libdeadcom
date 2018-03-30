@@ -8,10 +8,10 @@ UNITY           ?= Unity/src/
 FFF             ?= fff/
 TEST_PATH       ?= test/
 
-TEST_BUILD    	 = build/test/unit/build/
-TEST_OBJS     	 = build/test/unit/objs/
-TEST_RESULTS  	 = build/test/unit/results/
-TEST_RUNNERS  	 = build/test/unit/runners/
+TEST_BUILD    	 = build/test/build/
+TEST_OBJS     	 = build/test/objs/
+TEST_RESULTS  	 = build/test/results/
+TEST_RUNNERS  	 = build/test/runners/
 TEST_BUILD_PATHS = $(TEST_BUILD) $(TEST_OBJS) $(TEST_RESULTS) $(TEST_RUNNERS)
 
 TEST_RUN_WRAPPER = valgrind -q --track-origins=yes
@@ -51,7 +51,7 @@ $(TEST_OBJS)%-runner.o: $(TEST_RUNNERS)%-runner.c
 	@mkdir -p `dirname $@`
 	@$(TEST_CC) $(TEST_CFLAGS) -c $< -o $@
 
-$(TEST_RESULTS)%.result: $(TEST_BUILD)%.out
+$(TEST_RESULTS)%.testresults: $(TEST_BUILD)%.out
 	@echo
 	@echo "******************************************************************************"
 	@echo "*"

@@ -48,8 +48,8 @@ $(TEST_BUILD)$(T_DCL2UNIT_SUB)%.out: $$(shell echo $$@ | $$(FILE_UNDER_TEST)) $(
 	@mkdir -p `dirname $@`
 	@$(TEST_LD) $(TEST_LDFLAGS) -o $@ $^
 
-T_DCL2_UNIT_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.result,$(T_DCL2UNIT_CSRC))
-T_DCL2_UNIT_EXECS = $(patsubst $(TEST_RESULTS)%.result,$(TEST_BUILD)%.out,$(T_DCL2_UNIT_RESULTS))
+T_DCL2_UNIT_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.testresults,$(T_DCL2UNIT_CSRC))
+T_DCL2_UNIT_EXECS = $(patsubst $(TEST_RESULTS)%.testresults,$(TEST_BUILD)%.out,$(T_DCL2_UNIT_RESULTS))
 
 run-dcl2unit-tests: TEST_CFLAGS = -I. $(T_DCL2UNIT_INCPARAMS) -DTEST -g -Wno-trampolines
 run-dcl2unit-tests: $(TEST_BUILD_PATHS) $(T_DCL2_UNIT_EXECS) $(T_DCL2_UNIT_RESULTS) print-summary
@@ -80,6 +80,31 @@ build/dcl2-pthread.so: $(DCL2_SRC) $(DCL2_PTHREADS_SRC)
 
 
 ##############################################################################
+# Start of Leaky Pipe shared object
+#
+
+PIPE_SOURCE 	= deps/pipe
+PIPE_INCLUDE	= deps/pipe
+
+LP_SOURCE		= leaky-pipe/src
+LP_INCLUDE  	= leaky-pipe/inc
+LP_SRC      	= $(shell find $(LP_SOURCE) -type f -name '*.c')
+LP_SRC 		   += $(shell find $(PIPE_SOURCE) -type f -name '*.c')
+
+LP_TARGET       =
+LP_CC           = $(LP_TARGET)gcc
+LP_CFLAGS       = -I$(LP_INCLUDE) -I$(PIPE_INCLUDE) -lpthread -fpic -shared
+
+build/leaky-pipe.so: $(LP_SRC)
+	@mkdir -p `dirname $@`
+	$(LP_CC) $(LP_CFLAGS) $^ -o $@
+
+#
+# End of Leaky Pipe shared object
+##############################################################################
+
+
+##############################################################################
 # Start of Unity rules for DCL2 integration tests (backed by pthreads)
 #
 
@@ -93,8 +118,8 @@ $(TEST_BUILD)$(T_DCL2INTG_SUB)%.out: build/dcl2-pthread.so $(TEST_OBJS)$(T_DCL2I
 	@mkdir -p `dirname $@`
 	@$(TEST_LD) $(TEST_OBJS)$(T_DCL2INTG_SUB)$*.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCL2INTG_SUB)$*-runner.o -o $@ $(TEST_LDFLAGS)
 
-T_DCL2INTG_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.result,$(T_DCL2INTG_CSRC))
-T_DCL2INTG_EXECS = $(patsubst $(TEST_RESULTS)%.result,$(TEST_BUILD)%.out,$(T_DCL2INTG_RESULTS))
+T_DCL2INTG_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.testresults,$(T_DCL2INTG_CSRC))
+T_DCL2INTG_EXECS = $(patsubst $(TEST_RESULTS)%.testresults,$(TEST_BUILD)%.out,$(T_DCL2INTG_RESULTS))
 
 run-dcl2intg-tests: TEST_CFLAGS = -I. $(T_DCL2INTG_INCPARAMS) -DTEST -g -Wno-trampolines
 run-dcl2intg-tests: TEST_LDFLAGS = -lpthread -L. -l:build/dcl2-pthread.so
@@ -104,10 +129,38 @@ run-dcl2intg-tests: $(TEST_BUILD_PATHS) $(T_DCL2INTG_EXECS) $(T_DCL2INTG_RESULTS
 # End of Unity rules for DCL2 integration tests (backed by pthreads)
 ##############################################################################
 
+
+##############################################################################
+# Start of Unity rules for leaky-pipes Unit tests
+#
+
+T_LPUNIT_INCDIR     = $(UNITY) $(FFF) $(LP_INCLUDE) $(PIPE_INCLUDE)
+T_LPUNIT_INCPARAMS  = $(foreach d, $(T_LPUNIT_INCDIR), -I$d)
+T_LPUNIT_SUB        = leaky-pipe-unit/
+T_LPUNIT_CSRC       = $(shell find $(TEST_PATH)$(T_LPUNIT_SUB) -type f -regextype sed -regex '.*-test[0-9]*\.c')
+
+$(TEST_BUILD)$(T_LPUNIT_SUB)%.out: build/leaky-pipe.so $(TEST_OBJS)$(T_LPUNIT_SUB)%.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_LPUNIT_SUB)%-runner.o
+	@echo 'Linking test $@'
+	@mkdir -p `dirname $@`
+	@$(TEST_LD) $(TEST_OBJS)$(T_LPUNIT_SUB)$*.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_LPUNIT_SUB)$*-runner.o -o $@ $(TEST_LDFLAGS)
+
+T_LPUNIT_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.testresults,$(T_LPUNIT_CSRC))
+T_LPUNIT_EXECS = $(patsubst $(TEST_RESULTS)%.testresults,$(TEST_BUILD)%.out,$(T_LPUNIT_RESULTS))
+
+run-lpunit-tests: TEST_CFLAGS = -I. $(T_LPUNIT_INCPARAMS) -DTEST -g -Wno-trampolines
+run-lpunit-tests: TEST_LDFLAGS = -lpthread -L. -l:build/leaky-pipe.so
+run-lpunit-tests: $(TEST_BUILD_PATHS) $(T_LPUNIT_EXECS) $(T_LPUNIT_RESULTS) print-summary
+
+#
+# End of Unity rules for leaky-pipe Unit tests
+##############################################################################
+
 clean:
 	rm -rf build/
 
 clean-tests:
 	@rm -rf $(TEST_BUILD) $(TEST_OBJS) $(TEST_RESULTS) $(TEST_RUNNERS)
 
-test: run-dcl2unit-tests clean-tests
+test: run-dcl2unit-tests run-dcl2intg-tests run-lpunit-tests
+	@ruby deps/Unity/auto/unity_test_summary.rb build/test/results/
+	@rm -rf build/test/results

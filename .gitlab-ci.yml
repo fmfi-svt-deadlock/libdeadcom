@@ -16,6 +16,12 @@ test-dcl2-integration:
     script:
         - make run-dcl2intg-tests
 
+test-leakypipe-unit:
+    stage: test
+    image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
+    script:
+        - make run-lpunit-tests
+
 test-build-docs:
     stage: test
     image: python:3-alpine3.7
