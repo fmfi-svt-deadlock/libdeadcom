@@ -12,131 +12,11 @@
 
 #define TEST_DBG  false
 
+#include "common.h"
+
 DEFINE_FFF_GLOBALS;
 FAKE_VOID_FUNC(dummyTransmitBytes, uint8_t*, uint8_t);
 
-
-/**************************************************************************************************/
-/* Misc helpers */
-
-int pthread_reltimedjoin(pthread_t thread, void **retval, unsigned int milliseconds) {
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_nsec += milliseconds * 1000000;
-    ts.tv_sec  += (ts.tv_nsec / 1000000000);
-    ts.tv_nsec %= 1000000000;
-    return pthread_timedjoin_np(thread, retval, &ts);
-}
-
-void pthread_reltimedjoin_assert_notimeout(pthread_t *thread, unsigned int milliseconds) {
-    void *retval;
-    int ret = pthread_reltimedjoin(*thread, &retval, milliseconds);
-    if (ret != ETIMEDOUT) {
-        // The thread was joined, therefore it is not valid any more
-        *thread = 0;
-    }
-    TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
-}
-
-/* End misc helpers */
-/**************************************************************************************************/
-
-
-/**************************************************************************************************/
-/* Link emulation and data processing thread helpers */
-
-#define TEST_THREADS  4
-pthread_t threads[TEST_THREADS];
-leaky_pipe_t *c_tx_pipe;
-leaky_pipe_t *r_tx_pipe;
-
-#define STATION_C_TX  0
-#define STATION_C_RX  1
-#define STATION_R_TX  2
-#define STATION_R_RX  3
-
-
-typedef struct {
-    DeadcomL2 *station;
-    leaky_pipe_t *rx_pipe;
-    char station_char;
-} rx_set_t;
-
-void* rx_handle_thread(void *p) {
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-    rx_set_t *rp = (rx_set_t*) p;
-    uint8_t b[1];
-    while (lp_receive(rp->rx_pipe, b, 1)) {
-        if (TEST_DBG) {
-            printf("Station %c received: %02x\n", rp->station_char, b[0]);
-        }
-        dcProcessData(rp->station, b, 1);
-    }
-}
-
-void station_c_tx(uint8_t *bytes, uint8_t b_l) {
-    for (unsigned int i = 0; i < b_l; i++) {
-        if (TEST_DBG) {
-            printf("Station C transmitted: %02x\n", bytes[i]);
-        }
-        lp_transmit(c_tx_pipe, bytes[i]);
-    }
-}
-
-void station_r_tx(uint8_t *bytes, uint8_t b_l) {
-    for (unsigned int i = 0; i < b_l; i++) {
-        if (TEST_DBG) {
-            printf("Station R transmitted: %02x\n", bytes[i]);
-        }
-        lp_transmit(r_tx_pipe, bytes[i]);
-    }
-}
-
-void createLinksAndReceiveThreads(lp_args_t *c_tx_args, lp_args_t *r_tx_args, DeadcomL2 *station_c,
-                                  DeadcomL2 *station_r) {
-    lp_init(c_tx_pipe, c_tx_args);
-    lp_init(r_tx_pipe, r_tx_args);
-
-    TEST_ASSERT_EQUAL(DC_OK, dcPthreadsInit(station_c, &station_c_tx));
-    TEST_ASSERT_EQUAL(DC_OK, dcPthreadsInit(station_r, &station_r_tx));
-
-    rx_set_t *c = malloc(sizeof(rx_set_t)), *r = malloc(sizeof(rx_set_t));
-    c->station = station_c; c->rx_pipe = r_tx_pipe; c->station_char = 'C';
-    r->station = station_r; r->rx_pipe = c_tx_pipe; r->station_char = 'R';
-
-    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_RX], NULL, &rx_handle_thread, c));
-    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_R_RX], NULL, &rx_handle_thread, r));
-}
-
-void cutLinksAndJoinReceiveThreads() {
-    void *retval;
-    int ret;
-
-    lp_cutoff(c_tx_pipe);
-    ret = pthread_reltimedjoin(threads[STATION_R_RX], &retval,
-                               DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT * 2));
-    if (ret != ETIMEDOUT) {
-        // The thread was joined, therefore it is not valid any more
-        threads[STATION_R_RX] = 0;
-    }
-    TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
-
-    lp_cutoff(r_tx_pipe);
-    ret = pthread_reltimedjoin(threads[STATION_C_RX], &retval,
-                               DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT * 2));
-    if (ret != ETIMEDOUT) {
-        // The thread was joined, therefore it is not valid any more
-        threads[STATION_C_RX] = 0;
-    }
-    TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
-}
-
-/* End link emulation and data processing thread helpers */
-/**************************************************************************************************/
-
-
-/**************************************************************************************************/
-/* Integration tests of Deadcom Layer 2 library. Threading is implemented using pthreads helper */
 
 void setUp(void) {
     RESET_FAKE(dummyTransmitBytes);
@@ -180,7 +60,7 @@ void test_ConnectNoLink() {
     }
     TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &controller_thread, NULL));
 
-    unsigned int timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
+    long timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
     pthread_reltimedjoin_assert_notimeout(&threads[STATION_C_TX], timeout);
     cutLinksAndJoinReceiveThreads();
 }
@@ -199,7 +79,7 @@ void test_ConnectFlawlessLink() {
     }
     TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &controller_thread, NULL));
 
-    unsigned int timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
+    long timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
     pthread_reltimedjoin_assert_notimeout(&threads[STATION_C_TX], timeout);
     cutLinksAndJoinReceiveThreads();
 
@@ -226,7 +106,7 @@ void test_ConnectDropInRequest() {
     }
     TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &controller_thread, NULL));
 
-    unsigned int timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
+    long timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
     pthread_reltimedjoin_assert_notimeout(&threads[STATION_C_TX], timeout);
     cutLinksAndJoinReceiveThreads();
 
@@ -253,7 +133,7 @@ void test_ConnectDropInResponse() {
     }
     TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &controller_thread, NULL));
 
-    unsigned int timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
+    long timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
     pthread_reltimedjoin_assert_notimeout(&threads[STATION_C_TX], timeout);
     cutLinksAndJoinReceiveThreads();
 
@@ -297,7 +177,7 @@ void test_SendDataFlawlessLink() {
     }
     TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_R_TX], NULL, &reader_thread, NULL));
 
-    unsigned int timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
+    long timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
     pthread_reltimedjoin_assert_notimeout(&threads[STATION_C_TX], timeout);
     pthread_reltimedjoin_assert_notimeout(&threads[STATION_R_TX], timeout);
     cutLinksAndJoinReceiveThreads();
