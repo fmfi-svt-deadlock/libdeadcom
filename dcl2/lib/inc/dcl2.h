@@ -110,7 +110,7 @@ typedef struct {
     // Last acknowledged frame number by the other side
     uint8_t next_expected_ack;
 
-    // Incoming frame number
+    // Number of frame we expect to receive next
     uint8_t recv_number;
 
     // Number of consectutive communication failures

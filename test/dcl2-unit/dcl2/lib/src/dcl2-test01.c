@@ -776,7 +776,7 @@ void test_GetMessage() {
         d.extractionComplete = true;
         uint8_t orig_message[] = {0x42, 0x47};
         memcpy(d.extractionBuffer, orig_message, 2);
-        d.recv_number = recv;
+        d.recv_number = (recv+1)%8;
 
         int16_t received_msg_size = dcGetReceivedMsgLen(&d);
         TEST_ASSERT_EQUAL(2, received_msg_size);

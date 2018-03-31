@@ -127,7 +127,7 @@ DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom,  const uint8_t *message,
         .send_seq_no = deadcom->send_number,
         .recv_seq_no = deadcom->recv_number
     };
-    deadcom->send_number = (deadcom->send_number + 1) % 7;
+    deadcom->send_number = (deadcom->send_number + 1) % 8;
     deadcom->failure_count = 0;
     deadcom->state = DC_TRANSMITTING;
 
@@ -186,12 +186,12 @@ int16_t dcGetReceivedMsgLen(DeadcomL2 *deadcom) {
 
     // Lock and unlock mutex so that we wait if someone is modifying deadcom struct
     deadcom->t->mutexLock(deadcom->mutex_p);
-    deadcom->t->mutexUnlock(deadcom->mutex_p);
+    int16_t ebs = DC_E_NOMSG;
     if (deadcom->extractionComplete) {
-        return deadcom->extractionBufferSize;
-    } else {
-        return DC_E_NOMSG;
+        ebs = deadcom->extractionBufferSize;
     }
+    deadcom->t->mutexUnlock(deadcom->mutex_p);
+    return ebs;
 }
 
 
@@ -212,7 +212,7 @@ int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer) {
     // acknowledge reception and frame processing
     yahdlc_control_t control_ack = {
         .frame = YAHDLC_FRAME_ACK,
-        .recv_seq_no = deadcom->recv_number
+        .recv_seq_no = (deadcom->recv_number + 7) % 8
     };
 
     unsigned int ack_frame_length;
@@ -266,23 +266,23 @@ DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len) {
                     // We should process DATA frames only if we are connected
                     if (deadcom->state == DC_CONNECTED || deadcom->state == DC_TRANSMITTING) {
                         if (frame_control.send_seq_no == deadcom->recv_number) {
-                            if (deadcom->extractionBufferSize == DC_E_NOMSG) {
+                            if (deadcom->extractionBufferSize == DC_E_NOMSG && dest_len != 0) {
                                 deadcom->extractionBufferSize = dest_len;
                                 deadcom->extractionComplete = true;
                                 memcpy(deadcom->extractionBuffer, deadcom->scratchpadBuffer,
                                        dest_len);
-                                deadcom->recv_number = (deadcom->recv_number + 1) % 7;
+                                deadcom->recv_number = (deadcom->recv_number + 1) % 8;
                             }
                             // else: there already is a message in the extraction buffer. That means
                             // that the other station has sent a frame without waiting for ack on
                             // the previous frame. We will therefore ignore it.
                         } else if (!deadcom->extractionComplete &&
-                                   (frame_control.send_seq_no + 1) % 7 == deadcom->recv_number) {
+                                   (frame_control.send_seq_no + 1) % 8 == deadcom->recv_number) {
                             // We've seen and previously acked this frame. Since we've received
                             // again that ack must've gotten lost, so retransmit it.
                             yahdlc_control_t control_ack = {
                                 .frame = YAHDLC_FRAME_ACK,
-                                .recv_seq_no = (deadcom->recv_number + 6) % 7
+                                .recv_seq_no = (deadcom->recv_number + 7) % 8
                             };
 
                             unsigned int ack_frame_length;
@@ -301,7 +301,7 @@ DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len) {
                     if (deadcom->state == DC_TRANSMITTING) {
                         if (frame_control.recv_seq_no == deadcom->next_expected_ack) {
                             // Correct acknowledgment.
-                            deadcom->next_expected_ack = (deadcom->next_expected_ack + 1) % 7;
+                            deadcom->next_expected_ack = (deadcom->next_expected_ack + 1) % 8;
                             deadcom->last_response = DC_RESP_OK;
                             deadcom->t->condvarSignal(deadcom->condvar_p);
                         }
