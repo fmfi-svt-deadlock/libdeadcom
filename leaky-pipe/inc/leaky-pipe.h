@@ -180,4 +180,16 @@ void lp_transmit(leaky_pipe_t *lp, uint8_t byte);
  */
 unsigned int lp_receive(leaky_pipe_t *lp, uint8_t *buffer, unsigned int buffer_size);
 
+
+/**
+ * @brief Cut-off the pipe
+ *
+ * This function closes the pipe. After this function returns, any calls to lp_transmit are still
+ * permitted, but any transmitted data will be discarded. Any calls to lp_receive will stop
+ * blocking and after all bytes are read, will repeatedly return 0.
+ *
+ * @param[in]  lp  Leaky pipe
+ */
+void lp_cutoff(leaky_pipe_t *lp);
+
 #endif

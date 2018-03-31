@@ -54,6 +54,12 @@ void lp_init(leaky_pipe_t *lp, lp_args_t *args) {
 
 void lp_transmit(leaky_pipe_t *lp, uint8_t byte) {
     pthread_mutex_lock(&(lp->mutex));
+
+    if (lp->pipe_producer == NULL) {
+        pthread_mutex_unlock(&(lp->mutex));
+        return;
+    }
+
     bool drop = false;
 
     lp->byte_counter++;
@@ -101,4 +107,12 @@ void lp_transmit(leaky_pipe_t *lp, uint8_t byte) {
 
 unsigned int lp_receive(leaky_pipe_t *lp, uint8_t *buffer, unsigned int buffer_size) {
     return pipe_pop(lp->pipe_consumer, buffer, buffer_size);
+}
+
+
+void lp_cutoff(leaky_pipe_t *lp) {
+    pthread_mutex_lock(&(lp->mutex));
+    pipe_producer_free(lp->pipe_producer);
+    lp->pipe_producer = NULL;
+    pthread_mutex_unlock(&(lp->mutex));
 }
