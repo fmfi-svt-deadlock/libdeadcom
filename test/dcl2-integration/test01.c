@@ -16,6 +16,22 @@ FAKE_VOID_FUNC(dummyTransmitBytes, uint8_t*, uint8_t);
 
 
 /**************************************************************************************************/
+/* Misc helpers */
+
+int pthread_reltimedjoin(pthread_t thread, void **retval, unsigned int milliseconds) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_nsec += milliseconds * 1000000;
+    ts.tv_sec  += (ts.tv_nsec / 1000000000);
+    ts.tv_nsec %= 1000000000;
+    return pthread_timedjoin_np(thread, retval, &ts);
+}
+
+/* End misc helpers */
+/**************************************************************************************************/
+
+
+/**************************************************************************************************/
 /* Link emulation and data processing thread helpers */
 
 #define TEST_THREADS  4
@@ -78,26 +94,33 @@ void createLinksAndReceiveThreads(lp_args_t *c_tx_args, lp_args_t *r_tx_args, De
     r->station = station_r; r->rx_pipe = c_tx_pipe; r->station_char = 'R';
 
     TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_RX], NULL, &rx_handle_thread, c));
-    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &rx_handle_thread, r));
+    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_R_RX], NULL, &rx_handle_thread, r));
+}
+
+void cutLinksAndJoinReceiveThreads() {
+    void *retval;
+    int ret;
+
+    lp_cutoff(c_tx_pipe);
+    ret = pthread_reltimedjoin(threads[STATION_R_RX], &retval,
+                               DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT * 2));
+    if (ret != ETIMEDOUT) {
+        // The thread was joined, therefore it is not valid any more
+        threads[STATION_R_RX] = 0;
+    }
+    TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
+
+    lp_cutoff(r_tx_pipe);
+    ret = pthread_reltimedjoin(threads[STATION_C_RX], &retval,
+                               DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT * 2));
+    if (ret != ETIMEDOUT) {
+        // The thread was joined, therefore it is not valid any more
+        threads[STATION_C_RX] = 0;
+    }
+    TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
 }
 
 /* End link emulation and data processing thread helpers */
-/**************************************************************************************************/
-
-
-/**************************************************************************************************/
-/* Misc helpers */
-
-int pthread_reltimedjoin(pthread_t thread, void **retval, unsigned int milliseconds) {
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_nsec += milliseconds * 1000000;
-    ts.tv_sec  += (ts.tv_nsec / 1000000000);
-    ts.tv_nsec %= 1000000000;
-    return pthread_timedjoin_np(thread, retval, &ts);
-}
-
-/* End misc helpers */
 /**************************************************************************************************/
 
 
@@ -155,6 +178,7 @@ void test_ConnectNoLink() {
         threads[STATION_C_TX] = 0;
     }
     TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
+    cutLinksAndJoinReceiveThreads();
 }
 
 void test_ConnectFlawlessLink() {
@@ -180,6 +204,9 @@ void test_ConnectFlawlessLink() {
         threads[STATION_C_TX] = 0;
     }
     TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
+
+    cutLinksAndJoinReceiveThreads();
+
     TEST_ASSERT_EQUAL(DC_CONNECTED, dc.state);
     TEST_ASSERT_EQUAL(DC_CONNECTED, dr.state);
 }
@@ -212,6 +239,9 @@ void test_ConnectDropInRequest() {
         threads[STATION_C_TX] = 0;
     }
     TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
+
+    cutLinksAndJoinReceiveThreads();
+
     TEST_ASSERT_EQUAL(DC_CONNECTED, dc.state);
     TEST_ASSERT_EQUAL(DC_CONNECTED, dr.state);
 }
@@ -244,6 +274,9 @@ void test_ConnectDropInResponse() {
         threads[STATION_C_TX] = 0;
     }
     TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
+
+    cutLinksAndJoinReceiveThreads();
+
     TEST_ASSERT_EQUAL(DC_CONNECTED, dc.state);
     TEST_ASSERT_EQUAL(DC_CONNECTED, dr.state);
 }
