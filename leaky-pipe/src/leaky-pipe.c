@@ -112,7 +112,9 @@ unsigned int lp_receive(leaky_pipe_t *lp, uint8_t *buffer, unsigned int buffer_s
 
 void lp_cutoff(leaky_pipe_t *lp) {
     pthread_mutex_lock(&(lp->mutex));
-    pipe_producer_free(lp->pipe_producer);
-    lp->pipe_producer = NULL;
+    if (lp->pipe_producer != NULL) {
+        pipe_producer_free(lp->pipe_producer);
+        lp->pipe_producer = NULL;
+    }
     pthread_mutex_unlock(&(lp->mutex));
 }
