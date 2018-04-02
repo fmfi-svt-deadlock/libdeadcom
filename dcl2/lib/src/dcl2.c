@@ -153,8 +153,7 @@ DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom,  const uint8_t *message,
                     // The other station dropped link. Let's drop ours
                     transmit_success = false;
                     break;
-                } /* else it must have been DC_RESP_REJECT and in this case we want the loop to
-                continue normally */
+                }
             }
             deadcom->failure_count++;
         }
@@ -224,6 +223,7 @@ int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer) {
 
     int16_t copied_size = deadcom->extractionBufferSize;
     deadcom->extractionBufferSize = DC_E_NOMSG;
+    deadcom->extractionComplete = false;
 
     deadcom->t->mutexUnlock(deadcom->mutex_p);
     return copied_size;
@@ -276,7 +276,8 @@ DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len) {
                             // else: there already is a message in the extraction buffer. That means
                             // that the other station has sent a frame without waiting for ack on
                             // the previous frame. We will therefore ignore it.
-                        } else if ((frame_control.send_seq_no + 1) % 8 == deadcom->recv_number) {
+                        } else if (!deadcom->extractionComplete &&
+                                   (frame_control.send_seq_no + 1) % 8 == deadcom->recv_number) {
                             // We've seen and previously acked this frame. Since we've received
                             // again that ack must've gotten lost, so retransmit it.
                             yahdlc_control_t control_ack = {
