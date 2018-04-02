@@ -13,6 +13,10 @@
 /**************************************************************************************************/
 /* Misc helpers */
 
+pthread_mutex_t        test_mtx;
+pthread_cond_t         test_cnd;
+volatile unsigned int  test_assert_status;
+
 int pthread_reltimedjoin(pthread_t thread, void **retval, long milliseconds) {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -30,6 +34,26 @@ void pthread_reltimedjoin_assert_notimeout(pthread_t *thread, long milliseconds)
         *thread = 0;
     }
     TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
+}
+
+void waitForThreadsAndAssert(long milliseconds) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_nsec += milliseconds * 1000000;
+    ts.tv_sec  += (ts.tv_nsec / 1000000000);
+    ts.tv_nsec %= 1000000000;
+
+    pthread_mutex_lock(&test_mtx);
+    while (test_assert_status == ASSERT_STATUS_STILLRUNNING) {
+        pthread_cond_wait(&test_cnd, &test_mtx);
+    }
+    pthread_mutex_unlock(&test_mtx);
+    if (test_assert_status != ASSERT_STATUS_NOASSERT) {
+        char failStr[100];
+        memset(failStr, '\0', sizeof(failStr));
+        sprintf(failStr, "Assert failed in tested thread on line %d", test_assert_status);
+        TEST_FAIL_MESSAGE(failStr);
+    }
 }
 
 /* End misc helpers */
@@ -50,12 +74,12 @@ typedef struct {
 } rx_set_t;
 
 void* rx_handle_thread(void *p) {
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     rx_set_t *rp = (rx_set_t*) p;
     uint8_t b[1];
     while (lp_receive(rp->rx_pipe, b, 1)) {
         // printf("Station %c received %02x\n", rp->station_char, b[0]);
         dcProcessData(rp->station, b, 1);
+        pthread_testcancel();
     }
 }
 
@@ -108,6 +132,11 @@ void cutLinksAndJoinReceiveThreads() {
         threads[STATION_C_RX] = 0;
     }
     TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
+}
+
+void cutLinks() {
+    lp_cutoff(c_tx_pipe);
+    lp_cutoff(r_tx_pipe);
 }
 
 /* End link emulation and data processing thread helpers */

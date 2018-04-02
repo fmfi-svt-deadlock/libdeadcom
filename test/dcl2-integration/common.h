@@ -8,16 +8,40 @@
 #define STATION_R_TX  2
 #define STATION_R_RX  3
 
+
 extern pthread_t threads[TEST_THREADS];
 extern leaky_pipe_t *c_tx_pipe;
 extern leaky_pipe_t *r_tx_pipe;
 
+extern pthread_mutex_t        test_mtx;
+extern pthread_cond_t         test_cnd;
+extern volatile unsigned int  test_assert_status;
 
+#define ASSERT_STATUS_STILLRUNNING  0
+#define ASSERT_STATUS_NOASSERT      -1
+
+#define THREADED_ASSERT(condition) if (condition) { \
+    pthread_mutex_lock(&test_mtx); \
+    test_assert_status = __LINE__; \
+    pthread_cond_signal(&test_cnd); \
+    pthread_mutex_unlock(&test_mtx); \
+    return NULL; }
+
+#define THREAD_EXIT_OK() { \
+    pthread_mutex_lock(&test_mtx); \
+    test_assert_status = ASSERT_STATUS_NOASSERT; \
+    pthread_cond_signal(&test_cnd); \
+    pthread_mutex_unlock(&test_mtx); \
+    return NULL; }
+
+
+void waitForThreadsAndAssert(long milliseconds);
 int pthread_reltimedjoin(pthread_t thread, void **retval, long milliseconds);
 void pthread_reltimedjoin_assert_notimeout(pthread_t *thread, long milliseconds);
 
 void createLinksAndReceiveThreads(lp_args_t *c_tx_args, lp_args_t *r_tx_args, DeadcomL2 *station_c,
                                   DeadcomL2 *station_r);
 void cutLinksAndJoinReceiveThreads();
+void cutLinks();
 
 #endif
