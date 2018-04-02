@@ -51,7 +51,7 @@ $(TEST_BUILD)$(T_DCL2UNIT_SUB)%.out: $$(shell echo $$@ | $$(FILE_UNDER_TEST)) $(
 T_DCL2_UNIT_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.testresults,$(T_DCL2UNIT_CSRC))
 T_DCL2_UNIT_EXECS = $(patsubst $(TEST_RESULTS)%.testresults,$(TEST_BUILD)%.out,$(T_DCL2_UNIT_RESULTS))
 
-run-dcl2unit-tests: TEST_CFLAGS = -I. $(T_DCL2UNIT_INCPARAMS) -DTEST -g -Wno-trampolines
+run-dcl2unit-tests: TEST_CFLAGS += -I. $(T_DCL2UNIT_INCPARAMS) -DTEST -g -Wno-trampolines
 run-dcl2unit-tests: $(TEST_BUILD_PATHS) $(T_DCL2_UNIT_EXECS) $(T_DCL2_UNIT_RESULTS) print-summary
 
 #
@@ -121,7 +121,7 @@ $(TEST_BUILD)$(T_DCL2INTG_SUB)%.out: build/dcl2-pthread.so build/leaky-pipe.so $
 T_DCL2INTG_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.testresults,$(T_DCL2INTG_CSRC))
 T_DCL2INTG_EXECS = $(patsubst $(TEST_RESULTS)%.testresults,$(TEST_BUILD)%.out,$(T_DCL2INTG_RESULTS))
 
-run-dcl2intg-tests: TEST_CFLAGS = -I. $(T_DCL2INTG_INCPARAMS) -DTEST -g -Wno-trampolines
+run-dcl2intg-tests: TEST_CFLAGS += -I. $(T_DCL2INTG_INCPARAMS) -DTEST -g -Wno-trampolines
 run-dcl2intg-tests: TEST_LDFLAGS = -lpthread -L. -l:build/dcl2-pthread.so -l:build/leaky-pipe.so
 run-dcl2intg-tests: DCL2_PTHREADS_CFLAGS += -g
 run-dcl2intg-tests: $(TEST_BUILD_PATHS) $(T_DCL2INTG_EXECS) $(T_DCL2INTG_RESULTS) print-summary
@@ -148,7 +148,7 @@ $(TEST_BUILD)$(T_LPUNIT_SUB)%.out: build/leaky-pipe.so $(TEST_OBJS)$(T_LPUNIT_SU
 T_LPUNIT_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.testresults,$(T_LPUNIT_CSRC))
 T_LPUNIT_EXECS = $(patsubst $(TEST_RESULTS)%.testresults,$(TEST_BUILD)%.out,$(T_LPUNIT_RESULTS))
 
-run-lpunit-tests: TEST_CFLAGS = -I. $(T_LPUNIT_INCPARAMS) -DTEST -g -Wno-trampolines
+run-lpunit-tests: TEST_CFLAGS += -I. $(T_LPUNIT_INCPARAMS) -DTEST -g -Wno-trampolines
 run-lpunit-tests: TEST_LDFLAGS = -lpthread -L. -l:build/leaky-pipe.so
 run-lpunit-tests: $(TEST_BUILD_PATHS) $(T_LPUNIT_EXECS) $(T_LPUNIT_RESULTS) print-summary
 
