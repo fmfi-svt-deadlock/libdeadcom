@@ -276,8 +276,7 @@ DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len) {
                             // else: there already is a message in the extraction buffer. That means
                             // that the other station has sent a frame without waiting for ack on
                             // the previous frame. We will therefore ignore it.
-                        } else if (!deadcom->extractionComplete &&
-                                   (frame_control.send_seq_no + 1) % 8 == deadcom->recv_number) {
+                        } else if ((frame_control.send_seq_no + 1) % 8 == deadcom->recv_number) {
                             // We've seen and previously acked this frame. Since we've received
                             // again that ack must've gotten lost, so retransmit it.
                             yahdlc_control_t control_ack = {

@@ -54,6 +54,7 @@ void* rx_handle_thread(void *p) {
     rx_set_t *rp = (rx_set_t*) p;
     uint8_t b[1];
     while (lp_receive(rp->rx_pipe, b, 1)) {
+        // printf("Station %c received %02x\n", rp->station_char, b[0]);
         dcProcessData(rp->station, b, 1);
     }
 }
@@ -92,7 +93,7 @@ void cutLinksAndJoinReceiveThreads() {
 
     lp_cutoff(c_tx_pipe);
     ret = pthread_reltimedjoin(threads[STATION_R_RX], &retval,
-                               DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT * 2));
+                               DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT * 20));
     if (ret != ETIMEDOUT) {
         // The thread was joined, therefore it is not valid any more
         threads[STATION_R_RX] = 0;
@@ -101,7 +102,7 @@ void cutLinksAndJoinReceiveThreads() {
 
     lp_cutoff(r_tx_pipe);
     ret = pthread_reltimedjoin(threads[STATION_C_RX], &retval,
-                               DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT * 2));
+                               DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT * 20));
     if (ret != ETIMEDOUT) {
         // The thread was joined, therefore it is not valid any more
         threads[STATION_C_RX] = 0;
