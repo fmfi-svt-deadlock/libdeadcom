@@ -13,9 +13,9 @@
 /**************************************************************************************************/
 /* Misc helpers */
 
-pthread_mutex_t        test_mtx;
-pthread_cond_t         test_cnd;
-volatile unsigned int  test_assert_status;
+pthread_mutex_t  test_mtx;
+pthread_cond_t   test_cnd;
+volatile int     test_assert_status;
 
 int pthread_reltimedjoin(pthread_t thread, void **retval, long milliseconds) {
     struct timespec ts;
@@ -36,6 +36,10 @@ void pthread_reltimedjoin_assert_notimeout(pthread_t *thread, long milliseconds)
     TEST_ASSERT_NOT_EQUAL(ETIMEDOUT, ret);
 }
 
+void declareAssertingThreads(unsigned int n) {
+    test_assert_status = -1 * ((signed int)n);
+}
+
 void waitForThreadsAndAssert(long milliseconds) {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -44,11 +48,16 @@ void waitForThreadsAndAssert(long milliseconds) {
     ts.tv_nsec %= 1000000000;
 
     pthread_mutex_lock(&test_mtx);
-    while (test_assert_status == ASSERT_STATUS_STILLRUNNING) {
-        pthread_cond_wait(&test_cnd, &test_mtx);
+    int timedwait_retcode = 0;
+    while (0 > test_assert_status && timedwait_retcode != ETIMEDOUT) {
+        timedwait_retcode = pthread_cond_timedwait(&test_cnd, &test_mtx, &ts);
     }
     pthread_mutex_unlock(&test_mtx);
-    if (test_assert_status != ASSERT_STATUS_NOASSERT) {
+    if (timedwait_retcode == ETIMEDOUT) {
+        char *failStr = "Threads under test did not finish in time\0";
+        TEST_FAIL_MESSAGE(failStr);
+    }
+    if (test_assert_status != 0) {
         char failStr[100];
         memset(failStr, '\0', sizeof(failStr));
         sprintf(failStr, "Assert failed in tested thread on line %d", test_assert_status);
