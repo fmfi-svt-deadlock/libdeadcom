@@ -19,7 +19,7 @@ static const lp_args_t good_pipe = {
 
     .drop_prob = 0,
     .corrupt_prob = 0,
-    .add_prob = 0
+    .add_prob = 0,
 };
 
 
@@ -39,6 +39,7 @@ void lp_init(leaky_pipe_t *lp, lp_args_t *args) {
     lp->drop_list_cntr = 0;
     lp->corrupt_list_cntr = 0;
     lp->add_list_cntr = 0;
+    lp->initialized = true;
     memcpy(&(lp->holes), args, sizeof(lp_args_t));
 
     pthread_mutex_init(&(lp->mutex), NULL);
@@ -53,6 +54,9 @@ void lp_init(leaky_pipe_t *lp, lp_args_t *args) {
 
 
 void lp_transmit(leaky_pipe_t *lp, uint8_t byte) {
+    if (!lp->initialized) {
+        return;
+    }
     pthread_mutex_lock(&(lp->mutex));
 
     if (lp->pipe_producer == NULL) {
@@ -106,11 +110,17 @@ void lp_transmit(leaky_pipe_t *lp, uint8_t byte) {
 
 
 unsigned int lp_receive(leaky_pipe_t *lp, uint8_t *buffer, unsigned int buffer_size) {
+    if (!lp->initialized) {
+        return 0;
+    }
     return pipe_pop(lp->pipe_consumer, buffer, buffer_size);
 }
 
 
 void lp_cutoff(leaky_pipe_t *lp) {
+    if (!lp->initialized) {
+        return;
+    }
     pthread_mutex_lock(&(lp->mutex));
     if (lp->pipe_producer != NULL) {
         pipe_producer_free(lp->pipe_producer);

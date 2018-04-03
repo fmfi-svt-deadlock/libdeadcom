@@ -16,31 +16,17 @@ DEFINE_FFF_GLOBALS;
 FAKE_VOID_FUNC(dummyTransmitBytes, uint8_t*, uint8_t);
 
 
-void setUp(void) {
-    RESET_FAKE(dummyTransmitBytes);
-    for (int i = 0; i < TEST_THREADS; i++) {
-        threads[i] = 0;
-    }
-    c_tx_pipe = malloc(sizeof(leaky_pipe_t));
-    r_tx_pipe = malloc(sizeof(leaky_pipe_t));
-}
-
-void tearDown(void) {
-    for (int i = 0; i < TEST_THREADS; i++) {
-        if (threads[i] != 0) {
-            pthread_cancel(threads[i]);
-            void* retval;
-            pthread_join(threads[i], &retval);
-        }
-    }
-    free(c_tx_pipe);
-    free(r_tx_pipe);
-}
-
-
 void test_InitializeDCL2Pthreads() {
+    RESET_FAKE(dummyTransmitBytes);
     DeadcomL2 d;
     TEST_ASSERT_EQUAL(DC_OK, dcPthreadsInit(&d, &dummyTransmitBytes));
+}
+
+
+void* try_connect_thread(void* p) {
+    dcConnect(dc);
+    dcConnect(dc);
+    THREAD_EXIT_OK();
 }
 
 void test_ConnectNoLink() {
@@ -48,41 +34,32 @@ void test_ConnectNoLink() {
     lp_init_args(&args);
     args.drop_prob = 1; // A dead link basically
 
-    DeadcomL2 dc;
-    DeadcomL2 dr;
-    createLinksAndReceiveThreads(&args, &args, &dc, &dr);
+    createLinksAndReceiveThreads(&args, &args, dc, dr);
+    declareAssertingThreads(1);
 
-    void* controller_thread(void* p) {
-        pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-        TEST_ASSERT_EQUAL(DC_NOT_CONNECTED, dcConnect(&dc));
-    }
-    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &controller_thread, NULL));
+    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &try_connect_thread, NULL));
 
     long timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
-    pthread_reltimedjoin_assert_notimeout(&threads[STATION_C_TX], timeout);
+    waitForThreadsAndAssert(timeout);
     cutLinksAndJoinReceiveThreads();
+    TEST_ASSERT_EQUAL(DC_DISCONNECTED, dc->state);
 }
 
 void test_ConnectFlawlessLink() {
     lp_args_t args;
     lp_init_args(&args);
 
-    DeadcomL2 dc;
-    DeadcomL2 dr;
-    createLinksAndReceiveThreads(&args, &args, &dc, &dr);
+    createLinksAndReceiveThreads(&args, &args, dc, dr);
+    declareAssertingThreads(1);
 
-    void* controller_thread(void *p) {
-        pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-        TEST_ASSERT_EQUAL(DC_OK, dcConnect(&dc));
-    }
-    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &controller_thread, NULL));
+    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &try_connect_thread, NULL));
 
     long timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
-    pthread_reltimedjoin_assert_notimeout(&threads[STATION_C_TX], timeout);
+    waitForThreadsAndAssert(timeout);
     cutLinksAndJoinReceiveThreads();
 
-    TEST_ASSERT_EQUAL(DC_CONNECTED, dc.state);
-    TEST_ASSERT_EQUAL(DC_CONNECTED, dr.state);
+    TEST_ASSERT_EQUAL(DC_CONNECTED, dc->state);
+    TEST_ASSERT_EQUAL(DC_CONNECTED, dr->state);
 }
 
 void test_ConnectDropInRequest() {
@@ -93,23 +70,17 @@ void test_ConnectDropInRequest() {
     args_c_tx.drop_list = dl;
     args_c_tx.drop_list_len = 1;
 
-    DeadcomL2 dc;
-    DeadcomL2 dr;
-    createLinksAndReceiveThreads(&args_c_tx, &args_r_tx, &dc, &dr);
+    createLinksAndReceiveThreads(&args_c_tx, &args_r_tx, dc, dr);
+    declareAssertingThreads(1);
 
-    void* controller_thread(void *p) {
-        pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-        TEST_ASSERT_EQUAL(DC_NOT_CONNECTED, dcConnect(&dc));
-        TEST_ASSERT_EQUAL(DC_OK, dcConnect(&dc));
-    }
-    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &controller_thread, NULL));
+    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &try_connect_thread, NULL));
 
     long timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
-    pthread_reltimedjoin_assert_notimeout(&threads[STATION_C_TX], timeout);
+    waitForThreadsAndAssert(timeout);
     cutLinksAndJoinReceiveThreads();
 
-    TEST_ASSERT_EQUAL(DC_CONNECTED, dc.state);
-    TEST_ASSERT_EQUAL(DC_CONNECTED, dr.state);
+    TEST_ASSERT_EQUAL(DC_CONNECTED, dc->state);
+    TEST_ASSERT_EQUAL(DC_CONNECTED, dr->state);
 }
 
 void test_ConnectDropInResponse() {
@@ -120,21 +91,15 @@ void test_ConnectDropInResponse() {
     args_r_tx.drop_list = dl;
     args_r_tx.drop_list_len = 1;
 
-    DeadcomL2 dc;
-    DeadcomL2 dr;
-    createLinksAndReceiveThreads(&args_c_tx, &args_r_tx, &dc, &dr);
+    createLinksAndReceiveThreads(&args_c_tx, &args_r_tx, dc, dr);
+    declareAssertingThreads(1);
 
-    void* controller_thread(void *p) {
-        pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-        TEST_ASSERT_EQUAL(DC_NOT_CONNECTED, dcConnect(&dc));
-        TEST_ASSERT_EQUAL(DC_OK, dcConnect(&dc));
-    }
-    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &controller_thread, NULL));
+    TEST_ASSERT_EQUAL(0, pthread_create(&threads[STATION_C_TX], NULL, &try_connect_thread, NULL));
 
     long timeout = DEADCOM_CONN_TIMEOUT_MS * (DEADCOM_MAX_FAILURE_COUNT + 1);
-    pthread_reltimedjoin_assert_notimeout(&threads[STATION_C_TX], timeout);
+    waitForThreadsAndAssert(timeout);
     cutLinksAndJoinReceiveThreads();
 
-    TEST_ASSERT_EQUAL(DC_CONNECTED, dc.state);
-    TEST_ASSERT_EQUAL(DC_CONNECTED, dr.state);
+    TEST_ASSERT_EQUAL(DC_CONNECTED, dc->state);
+    TEST_ASSERT_EQUAL(DC_CONNECTED, dr->state);
 }

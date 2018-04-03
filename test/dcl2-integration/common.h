@@ -17,6 +17,8 @@ extern pthread_mutex_t  test_mtx;
 extern pthread_cond_t   test_cnd;
 extern volatile int     test_assert_status;
 
+extern DeadcomL2 *dc, *dr;
+
 #define THREADED_ASSERT(condition) if (!(condition)) { \
     pthread_mutex_lock(&test_mtx); \
     test_assert_status = __LINE__; \
@@ -41,5 +43,11 @@ void createLinksAndReceiveThreads(lp_args_t *c_tx_args, lp_args_t *r_tx_args, De
                                   DeadcomL2 *station_r);
 void cutLinksAndJoinReceiveThreads();
 void cutLinks();
+
+void setUp();
+void tearDown();
+
+void run_1000msg_test(lp_args_t *args_c_tx, lp_args_t *args_r_tx);
+void run_1msg_test(lp_args_t *args_c_tx, lp_args_t *args_r_tx);
 
 #endif

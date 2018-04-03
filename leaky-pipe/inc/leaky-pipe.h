@@ -9,6 +9,7 @@
 #define __LEAKY_PIPE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <pthread.h>
 #include "pipe.h"
 
@@ -111,6 +112,7 @@ typedef struct {
  * Internals of this structure should be touched only by this library.
  */
 typedef struct {
+    bool initialized;
     pipe_producer_t *pipe_producer;
     pipe_consumer_t *pipe_consumer;
     pthread_mutex_t mutex;
