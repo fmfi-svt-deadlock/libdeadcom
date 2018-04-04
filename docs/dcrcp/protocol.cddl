@@ -1,0 +1,154 @@
+; This document describes Controller<->Reader Protocol version 0.0.1-rc1
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Root CRPM rule
+;;
+
+; Each frame type is represented by a number. CRPM frame is a struct mapping
+; containing a single
+; frame which is mapped by its Frame ID
+
+crpm = {
+    1 => sysQueryRequest //
+    2 => sysQueryResponse //
+    3 => activateAuthMethod //
+    4 => rdrFailure //
+    5 => uiUpdate //
+    6 => am0PiccUidObtained
+}
+
+;;
+;; End Root CRPM rule
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; System query request CRPM type
+;;
+
+; System query request.
+; CRPM Direction: Controller -> Reader
+;
+; The controller can use this frame to find out what kind of Reader is connected
+; and what can it do. See System query response for what can the Controller find
+; out.
+
+sysQueryRequest = nil
+
+;;
+;; End System query request CRPM type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; System query response CRPM type
+;;
+
+; System query response.
+; CRPM Direction: Reader -> Controller
+;
+; Response to "System query request". The Reader is announcing who it is and
+; what it can do.
+
+sysQueryResponse = {
+    rdrClass: uint .size(2),
+    hwModel:  uint .size(2),
+    hwRev:    uint .size(1),
+    devSN:    text .size(25),
+    swMajor:  uint .size(1),
+    swMinor:  uint .size(1)
+}
+
+;;
+;; End System query response CRPM type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Activate auth method CRPM type
+;;
+
+; Activate auth methods.
+; CRPM Direction: Controller -> Reader
+;
+; Deadlock Reader may support multiple different authentication token reading
+; methods. By default, none is active (the Reader is not reading anything).
+; This CRPM can be used to activate them. The Reader will respond by deactivating
+; all authentication token reading methods, and reactivating only those mentioned
+; in the list.
+
+activateAuthMethod = [ + &authMethod ]
+
+authMethod = (
+    am0PiccUid: 0
+)
+
+;;
+;; End Activate auth method CRPM type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Reader failure CRPM type
+;;
+
+; Reader detected internal error.
+; CRPM Direction: Reader -> Controller
+;
+; The Reader has detected its own failure. It has stopped trying to read
+; authentication tokens.
+
+rdrFailure = text .size(1..200)
+
+;;
+;; End Reader failure CRPM type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; UI Update CRPM type
+;;
+
+; User-relevant system state has changed.
+; CRPM Direction: Controller -> Reader
+;
+; Controller sends this packet when something the user should be made aware of
+; happens, like door unlocking, system failure...
+; uiUpdate payload differs with different Reader classes since different classes
+; may have different conceptual user interfaces.
+
+
+uiUpdate = &uiClass0State
+
+uiClass0State = (
+    doorClosed: 0,
+    IDAcceptedDoorUnlocked: 1,
+    IDRejected: 2,
+    doorPermanentlyUnlocked: 3,
+    doorPermanentlyLocked: 4,
+    systemFailure: 5,
+    doorOpetTooLong: 6
+)
+
+;;
+;; End UI Update CRPM type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Auth method 0: PICC UID obtained CRPM type
+;;
+
+; Authentication method 0: PICC UID obtained
+; CRPM Direction: Reader -> Controller
+;
+; Authentication token reading method 0 (ISO/IEC 14443 UID reading) has
+; succeeded and obtained the one or more UIDs.
+
+am0PiccUidObtained = [1*10 piccUid]
+
+piccUid = bytes .size(4) / bytes .size(7) / bytes .size(10)
+
+;;
+;; End Auth method 0: PICC UID obtained CRPM type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

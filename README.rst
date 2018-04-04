@@ -49,8 +49,10 @@ use-case.
 Deadcom Reader-Controller Protocol (``dcrcp``)
 ----------------------------------------------
 
-DeadCom Reader<->Controller Protocol is an application protocol used by Reader and Controller.
-This library is designed for use with 2 threads: one receive thread and one transmit thread.
+DeadCom Reader<->Controller Protocol is an application protocol used for communication between
+Reader and Controller. It uses CBOR to encode data according to defined schema. No implementation
+is provided, as there are plenty of mature generic CBOR implementations and anything on top of that
+would constitute an extra unnecessary layer.
 
 .. toctree::
     :maxdepth: 2
