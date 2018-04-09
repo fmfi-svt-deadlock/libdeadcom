@@ -225,7 +225,7 @@ DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, const uint8_t *message,
  *         DC_E_NOMSG if no message is waiting or
  *         DC_E_FAIL  if parameters are invalid
  *
- * @note   Since "dcGetReceivedMsg" and "dcGetReceivedMsg" are 2 different functions, one might
+ * @note   Since "dcGetReceivedMsg" and "dcGetReceivedMsgLen" are 2 different functions, one might
  *         expect that "Time of check to time of use" race condition might occur.
  *         This is only partialy true: if this function returns DC_E_NOMSG it means that there was
  *         no message present at the call time.
@@ -242,7 +242,7 @@ int16_t dcGetReceivedMsgLen(DeadcomL2 *deadcom);
 /**
  * Get the received message.
  *
- * This function returns the received message, in any. When the message is copied this function
+ * This function returns the received message, if any. When the message is copied this function
  * transmits a message acknowledgment to the sending station. This means that if this function
  * is not called in time the sending station may decide that we are unresponsive and terminate
  * the link.

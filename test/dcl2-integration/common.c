@@ -88,6 +88,7 @@ void* rx_handle_thread(void *p) {
     rx_set_t *rp = (rx_set_t*) p;
     uint8_t b[1];
     while (lp_receive(rp->rx_pipe, b, 1)) {
+        // Uncomment this if you want to see bytes exchanged between simulated stations
         // printf("Station %c received %02x\n", rp->station_char, b[0]);
         dcProcessData(rp->station, b, 1);
         pthread_testcancel();
