@@ -218,6 +218,9 @@ T_DCRCPINTG_EXECS = $(patsubst $(TEST_RESULTS)%.testresults,$(TEST_BUILD)%.out,$
 run-dcrcpintg-tests: TEST_CFLAGS += -I. $(T_DCRCPINTG_INCPARAMS) -DTEST -g -Wno-trampolines -DUSE_CBOR_CONTEXT
 run-dcrcpintg-tests: TEST_LDFLAGS = -L. -l:build/dcrcp.so
 run-dcrcpintg-tests: DCRCP_CFLAGS += -g
+# Disable valgrind. It causes General Protection Fault on `system(3)` invocation in musl on Alpine
+# TODO this should be investigated and reenabled
+run-dcrcpintg-tests: TEST_RUN_WRAPPER =
 run-dcrcpintg-tests: $(TEST_BUILD_PATHS) $(T_DCRCPINTG_EXECS) $(T_DCRCPINTG_RESULTS) print-summary
 
 #

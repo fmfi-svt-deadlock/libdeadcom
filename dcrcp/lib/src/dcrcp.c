@@ -16,7 +16,7 @@
 
 DCRCPStatus dcrcpEncode(DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf_size, size_t *out_size,
                         cn_cbor_context *ctx) {
-    if (crpm_in == NULL || buf_out == NULL || buf_size == 0 || out_size == NULL) {
+    if (crpm_in == NULL || buf_out == NULL || buf_size == 0 || out_size == NULL || ctx == NULL) {
         return DCRCP_STATUS_INVALID_PARAM;
     }
 
@@ -44,11 +44,40 @@ DCRCPStatus dcrcpEncode(DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf_size,
         return DCRCP_STATUS_BUFFER_SMALL;
     }
 
+    cn_cbor_free(crpm, ctx);
     return DCRCP_STATUS_OK;
 }
 
 
 DCRCPStatus dcrcpDecode(DeadcomCRPM *crpm_out, uint8_t *buf_in, size_t buf_size,
                         cn_cbor_context *ctx) {
-    return DCRCP_STATUS_OK;
+    if (crpm_out == NULL || buf_in == NULL || buf_size == 0 || ctx == NULL) {
+        return DCRCP_STATUS_INVALID_PARAM;
+    }
+
+    cn_cbor_errback err;
+    cn_cbor *crpm = cn_cbor_decode(buf_in, buf_size, ctx, &err);
+
+    if (crpm == NULL) {
+        switch(err.err) {
+            case CN_CBOR_ERR_OUT_OF_MEMORY:
+                return DCRCP_STATUS_OUT_OF_MEMORY;
+            default:
+                return DCRCP_STATUS_DECODE_FAIL;
+        }
+    }
+
+    cn_cbor *payload;
+    if (NULL != (payload = cn_cbor_mapget_int(crpm, DCRCP_CRPM_SYS_QUERY_REQUEST))) {
+        // This CRPM has no payload
+        crpm_out->type = DCRCP_CRPM_SYS_QUERY_REQUEST;
+    }
+
+    if (payload == NULL) {
+        cn_cbor_free(crpm, ctx);
+        return DCRCP_STATUS_SCHEMA_FAIL;
+    } else {
+        cn_cbor_free(crpm, ctx);
+        return DCRCP_STATUS_OK;
+    }
 }
