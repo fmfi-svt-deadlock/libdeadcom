@@ -22,6 +22,12 @@ test-leakypipe-unit:
     script:
         - make run-lpunit-tests
 
+test-dcrcp-integration:
+    stage: test
+    image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
+    script:
+        - make run-dcrcpintg-tests
+
 test-build-docs:
     stage: test
     image: python:3-alpine3.7
