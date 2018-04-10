@@ -50,14 +50,18 @@ sysQueryRequest = nil
 ; Response to "System query request". The Reader is announcing who it is and
 ; what it can do.
 
-sysQueryResponse = {
+; I've chosen to make this one a record instead of struct. It being a struct would more than
+; double size of the encoded CRPM and would be more resource-intensive on decoder/encoder.
+; It being a record is OK as long as both stations can agree on a common scheme.
+sysQueryResponse = [1*1 sysQueryResponseGroup]
+sysQueryResponseGroup = (
     rdrClass: uint .size(2),
     hwModel:  uint .size(2),
     hwRev:    uint .size(1),
     devSN:    text .size(25),
     swMajor:  uint .size(1),
     swMinor:  uint .size(1)
-}
+)
 
 ;;
 ;; End System query response CRPM type
@@ -77,9 +81,7 @@ sysQueryResponse = {
 ; all authentication token reading methods, and reactivating only those mentioned
 ; in the list.
 
-; TODO limit length of this list to 10
-
-activateAuthMethod = [ + &authMethod ]
+activateAuthMethod = [ 1*10 &authMethod ]
 
 authMethod = (
     am0PiccUid: 0

@@ -88,16 +88,19 @@ typedef struct DeadcomCRPM {
             uint16_t rdrClass;
             uint16_t hwModel;
             uint16_t hwRev;
-            char     serial[25];
+            char     serial[26];
             uint8_t  swVerMajor;
             uint8_t  swVerMinor;
         } sysQueryResponse;
-        DeadcomCRPMAuthMethod authMethods[10];
+        struct CRPMAuthMethodArray {
+            DeadcomCRPMAuthMethod vals[10];
+            size_t len;
+        } authMethods;
         char rdrFailure[200];
         DeadcomCRPMUIClass0States ui_class0_state;
         struct CRPMAM0UuidPayload {
-            size_t uuids_len;
-            DeadcomCRPMAM0Uid uuids[10];
+            size_t len;
+            DeadcomCRPMAM0Uid vals[10];
         } authMethod0UuidObtained;
     } data;
 } DeadcomCRPM;

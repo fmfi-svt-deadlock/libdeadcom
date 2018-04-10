@@ -108,7 +108,7 @@ void free_limited_context(cn_cbor_context *ctx) {
 /**************************************************************************************************/
 /* Encode-decode identity with memory constraint and schema validation tester */
 
-#define CBOR_CONTEXT_MEMLIMIT  256
+#define CBOR_CONTEXT_MEMLIMIT  512
 #define CRPM_SIZE_LIMIT        245
 #define PRINT_DEBUG_BYTES      false
 
@@ -131,6 +131,14 @@ void run_test(DeadcomCRPM *crpm) {
     TEST_ASSERT_EQUAL(DCRCP_STATUS_OK, dcrcpEncode(crpm, buf, CRPM_SIZE_LIMIT, &out_size, e_ctx));
     TEST_ASSERT(was_everything_deallocated(e_ctx));
 
+    if (PRINT_DEBUG_BYTES) {
+        unsigned int cnt;
+        for (cnt = 0; cnt < out_size; cnt++) {
+            printf("%02x", buf[cnt]);
+        }
+        printf("\n");
+    }
+
     if (VERIFY_AGAINST_CDDL) {
         char tmp_path[] = "/tmp/dcrcp_test_XXXXXX";
         int fd;
@@ -151,13 +159,6 @@ void run_test(DeadcomCRPM *crpm) {
         unlink(tmp_path);
     }
 
-    if (PRINT_DEBUG_BYTES) {
-        unsigned int cnt;
-        for (cnt = 0; cnt < out_size; cnt++) {
-            printf("%02x", buf[cnt]);
-        }
-        printf("\n");
-    }
     TEST_ASSERT_EQUAL(DCRCP_STATUS_OK, dcrcpDecode(&out, buf, out_size, d_ctx));
     TEST_ASSERT(was_everything_deallocated(d_ctx));
 
@@ -174,5 +175,59 @@ void run_test(DeadcomCRPM *crpm) {
 void test_EncodeDecodeIdempotence_SysQueryRequest() {
     DeadcomCRPM c; memset(&c, 0, sizeof(DeadcomCRPM));
     c.type = DCRCP_CRPM_SYS_QUERY_REQUEST;
+    run_test(&c);
+}
+
+void test_EncodeDecodeIdempotence_SysQueryResponse() {
+    DeadcomCRPM c; memset(&c, 0, sizeof(DeadcomCRPM));
+    c.type = DCRCP_CRPM_SYS_QUERY_RESPONSE;
+    c.data.sysQueryResponse.rdrClass = 0;
+    c.data.sysQueryResponse.hwModel  = 1;
+    c.data.sysQueryResponse.hwRev    = 1;
+    memcpy(c.data.sysQueryResponse.serial, "DEADBEEFDEADBEEFBADF00D00", 26);
+    c.data.sysQueryResponse.swVerMajor = 1;
+    c.data.sysQueryResponse.swVerMinor = 1;
+    run_test(&c);
+}
+
+void test_EncodeDecodeIdempotence_ActivateAuthMethod() {
+    DeadcomCRPM c; memset(&c, 0, sizeof(DeadcomCRPM));
+    c.type = DCRCP_CRPM_ACTIVATE_AUTH_METHOD;
+    c.data.authMethods.vals[0] = DCRCP_CRPM_AM_PICC_UUID;
+    c.data.authMethods.len = 1;
+    run_test(&c);
+}
+
+void test_EncodeDecodeIdempotence_RdrFailure() {
+    DeadcomCRPM c; memset(&c, 0, sizeof(DeadcomCRPM));
+    c.type = DCRCP_CRPM_RDR_FAILURE;
+    const char rdr_err_msg[] = "Something terrible has happened and the Reader is on fire";
+    strncpy(c.data.rdrFailure, rdr_err_msg, 200);
+    run_test(&c);
+}
+
+void test_EncodeDecodeIdempotence_UiUpdate() {
+    DeadcomCRPM c; memset(&c, 0, sizeof(DeadcomCRPM));
+    c.type = DCRCP_CRPM_UI_UPDATE;
+    c.data.ui_class0_state = DCRCP_CRPM_UIC0_DOOR_PERMANENTLY_UNLOCKED;
+    run_test(&c);
+}
+
+void test_EncodeDecodeIdempotence_AM0PiccUidObtained() {
+    DeadcomCRPM c; memset(&c, 0, sizeof(DeadcomCRPM));
+    c.type = DCRCP_CRPM_AM0_PICC_UID_OBTAINED;
+    c.data.authMethod0UuidObtained.len = 3;
+
+    uint8_t uid[] = { 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0 };
+
+    c.data.authMethod0UuidObtained.vals[0].uid_len = 4;
+    memcpy(c.data.authMethod0UuidObtained.vals[0].uid, uid, 4);
+
+    c.data.authMethod0UuidObtained.vals[1].uid_len = 7;
+    memcpy(c.data.authMethod0UuidObtained.vals[1].uid, uid, 7);
+
+    c.data.authMethod0UuidObtained.vals[2].uid_len = 10;
+    memcpy(c.data.authMethod0UuidObtained.vals[2].uid, uid, 10);
+
     run_test(&c);
 }
