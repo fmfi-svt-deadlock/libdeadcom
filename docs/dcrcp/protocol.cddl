@@ -77,6 +77,8 @@ sysQueryResponse = {
 ; all authentication token reading methods, and reactivating only those mentioned
 ; in the list.
 
+; TODO limit length of this list to 10
+
 activateAuthMethod = [ + &authMethod ]
 
 authMethod = (
@@ -127,7 +129,7 @@ uiClass0State = (
     doorPermanentlyUnlocked: 3,
     doorPermanentlyLocked: 4,
     systemFailure: 5,
-    doorOpetTooLong: 6
+    doorOpenTooLong: 6
 )
 
 ;;

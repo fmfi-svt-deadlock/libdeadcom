@@ -50,9 +50,11 @@ Deadcom Reader-Controller Protocol (``dcrcp``)
 ----------------------------------------------
 
 DeadCom Reader<->Controller Protocol is an application protocol used for communication between
-Reader and Controller. It uses CBOR to encode data according to defined schema. No implementation
-is provided, as there are plenty of mature generic CBOR implementations and anything on top of that
-would constitute an extra unnecessary layer.
+Reader and Controller. It uses CBOR to encode data according to a defined schema. C implementation
+intended for embedded systems (using open-source project
+`cn-cbor <https://github.com/cabo/cn-cbor>`_) is provided. For Python there are many mature
+libraries that can convert CBOR to native Python structures. Anything on top of that would be an
+unnecessary layer.
 
 .. toctree::
     :maxdepth: 2
@@ -60,6 +62,7 @@ would constitute an extra unnecessary layer.
     :hidden:
 
     dcrcp/protocol
+    dcrcp/c-api
 
 
 Leaky Pipe (``leaky-pipe``)

@@ -7,3 +7,6 @@
 [submodule "deps/pipe"]
 	path = deps/pipe
 	url = https://github.com/cgaebel/pipe.git
+[submodule "deps/cn-cbor"]
+	path = deps/cn-cbor
+	url = https://github.com/cabo/cn-cbor.git
