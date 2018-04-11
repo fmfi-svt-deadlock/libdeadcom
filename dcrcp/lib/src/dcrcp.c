@@ -63,7 +63,7 @@ DCRCPStatus dcrcpEncode(DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf_size,
 
     switch(crpm_in->type) {
         case DCRCP_CRPM_SYS_QUERY_REQUEST: {
-            cn_cbor *nil = ctx->calloc_func(1, sizeof(cn_cbor), ctx->context);
+            cn_cbor *nil = ctx->calloc_func(ctx->context);
             CHECK_ALLOC(nil);
             nil->type = CN_CBOR_NULL;
             if (!cn_cbor_mapput_int(crpm, DCRCP_CRPM_SYS_QUERY_REQUEST, nil, ctx, &err)) {

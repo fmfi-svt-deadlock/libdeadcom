@@ -12,7 +12,6 @@
 
 typedef struct test_alloc_block test_alloc_block;
 struct test_alloc_block {
-    size_t size;
     void* loc;
     test_alloc_block *next;
 };
@@ -20,54 +19,28 @@ struct test_alloc_block {
 typedef struct {
     size_t alloc_limit;
     size_t allocated;
-    test_alloc_block *first_block;
 } test_alloc_context;
 
-void* context_calloc(size_t count, size_t size, void *context) {
-    // TODO this function itself has no error handling for allocation failures!
+cn_cbor* context_calloc(void *context) {
     test_alloc_context *tctx = (test_alloc_context*) context;
 
-    if ((tctx->allocated + count*size) > tctx->alloc_limit) {
+    if ((tctx->allocated + 1) > tctx->alloc_limit) {
         return NULL;
     }
-    tctx->allocated += count*size;
 
-    test_alloc_block *new_block = calloc(1, sizeof(test_alloc_block));
-    new_block->size = size;
-    new_block->loc  = calloc(count, size);
+    cn_cbor *n = calloc(1, sizeof(cn_cbor));
 
-    if (tctx->first_block != NULL) {
-        new_block->next = tctx->first_block;
+    if (n != NULL) {
+        tctx->allocated += 1;
     }
-    tctx->first_block = new_block;
 
-    return new_block->loc;
+    return n;
 }
 
-void context_free(void *ptr, void *context) {
+void context_free(cn_cbor *ptr, void *context) {
     test_alloc_context *tctx = (test_alloc_context*) context;
-
-    // Find the allocation block
-    test_alloc_block *previous = NULL, *current = tctx->first_block;
-    while (current->loc != ptr) {
-        if (current->next == NULL) {
-            TEST_FAIL_MESSAGE("Invalid free!");
-        }
-        previous = current;
-        current = current->next;
-    }
-
-    // Free it
     free(ptr);
-
-    // Update bookkeeping
-    tctx->allocated -= current->size;
-    if (previous != NULL) {
-        previous->next = current->next;
-    } else {
-        tctx->first_block = current->next;
-    }
-    free(current);
+    tctx->allocated -= 1;
 }
 
 // This function creates a cn-cbor allocation context which uses `malloc` and `free`, but internally
@@ -91,14 +64,8 @@ bool was_everything_deallocated(cn_cbor_context *ctx) {
 
 void free_limited_context(cn_cbor_context *ctx) {
     test_alloc_context *tctx = (test_alloc_context*) ctx->context;
-    test_alloc_block *current = tctx->first_block;
-    while (current != NULL) {
-        test_alloc_block *rip = current;
-        current = current->next;
-        free(rip->loc);
-        free(rip);
-    }
     free(tctx);
+    free(ctx);
 }
 
 /* End Memory allocation context implementation with counting */
@@ -108,7 +75,6 @@ void free_limited_context(cn_cbor_context *ctx) {
 /**************************************************************************************************/
 /* Encode-decode identity with memory constraint and schema validation tester */
 
-#define CBOR_CONTEXT_MEMLIMIT  512
 #define CRPM_SIZE_LIMIT        245
 #define PRINT_DEBUG_BYTES      false
 
@@ -123,8 +89,8 @@ void run_test(DeadcomCRPM *crpm) {
     DeadcomCRPM out;
     memset(&out, 0, sizeof(DeadcomCRPM));
 
-    cn_cbor_context *e_ctx = create_limited_context(CBOR_CONTEXT_MEMLIMIT);
-    cn_cbor_context *d_ctx = create_limited_context(CBOR_CONTEXT_MEMLIMIT);
+    cn_cbor_context *e_ctx = create_limited_context(DCRCP_REQUIRED_CNCBOR_BUFFERS);
+    cn_cbor_context *d_ctx = create_limited_context(DCRCP_REQUIRED_CNCBOR_BUFFERS);
 
     uint8_t buf[CRPM_SIZE_LIMIT];
     size_t out_size;

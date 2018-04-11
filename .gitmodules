@@ -9,4 +9,4 @@
 	url = https://github.com/cgaebel/pipe.git
 [submodule "deps/cn-cbor"]
 	path = deps/cn-cbor
-	url = https://github.com/cabo/cn-cbor.git
+	url = https://github.com/fmfi-svt-deadlock/cn-cbor.git

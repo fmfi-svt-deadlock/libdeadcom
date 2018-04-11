@@ -17,6 +17,16 @@
 #include <stdlib.h>
 #include "cn-cbor/cn-cbor.h"
 
+/**
+ * Minimum number of cn_cbor structures required to encode each defined message.
+ * Also a minimum number of cn_cbor structures required to decode each defined message **if**:
+ *  - It contains no extra values (and therefore is strictly compliant with schema)
+ *  - It contains no strings / bytes encoded in chunks
+ *
+ * Pool allocator must be able to allocate at least this number of cn_cbor structs.
+ */
+#define DCRCP_REQUIRED_CNCBOR_BUFFERS  9
+
 #define DCRCP_AM0_MAX_UID_LEN   10
 
 /**
