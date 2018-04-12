@@ -5,6 +5,8 @@
 #include "dcl2.h"
 #include "dcl2-fakes.c"
 
+#define UNUSED_PARAM(x)  (void)(x);
+
 /*
  * Tests of Deadcom Layer 2 library, part 1: Initializing and transmitting frames
  */
@@ -50,8 +52,9 @@ void test_InvalidConnectionParams() {
 void test_ValidConnection() {
     DeadcomL2 d;
 
-    int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned int data_len,
-                        char *data_out, unsigned int *data_out_len) {
+    int frame_data_fake_impl(yahdlc_control_t *control, const uint8_t *data, size_t data_len,
+                             uint8_t *data_out, size_t *data_out_len) {
+        UNUSED_PARAM(data);
         // this function should request creation of CONN frames only
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN, control->frame);
         // with no data
@@ -62,10 +65,11 @@ void test_ValidConnection() {
             data_out[1] = 0x47;
         }
         *data_out_len = 2;
+        return 0;
     }
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
-    void transmitBytes_fake_impl(uint8_t *data, uint8_t len) {
+    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
         // this function should onle ever attempt to transmit fake frame generated above
         TEST_ASSERT_EQUAL(2, len);
         uint8_t fake_frame[] = {0x42, 0x47};
@@ -343,6 +347,8 @@ void test_SendMessageWithAcknowledgment() {
             const uint8_t message[] = {0x42, 0x47};
 
             bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+                UNUSED_PARAM(condvar);
+                UNUSED_PARAM(timeout);
                 // Fake implementation of condvarWait function.
                 // This function should be called after the message is transmitted.
                 // The mutex should be locked
@@ -354,8 +360,7 @@ void test_SendMessageWithAcknowledgment() {
                 TEST_ASSERT_EQUAL(DC_TRANSMITTING, d.state);
 
                 // Verify that proper message has been transmitted
-                uint8_t *txed_bytes = transmitBytes_fake.arg0_val;
-                unsigned int num_txed_bytes = transmitBytes_fake.arg1_val;
+                const uint8_t *txed_bytes = transmitBytes_fake.arg0_val;
 
                 // Verify that this is a DATA frame with correct sequence numbers
                 TEST_ASSERT_EQUAL(YAHDLC_FRAME_DATA, ((yahdlc_control_t*)txed_bytes)->frame);
@@ -412,6 +417,8 @@ void test_SendMessageWhenNacked() {
 
         unsigned int nacked_times = 0;
         bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+            UNUSED_PARAM(condvar);
+            UNUSED_PARAM(timeout);
             // Fake implementation of condvarWait function.
             // This function should be called after the message is transmitted.
             // The mutex should be locked
@@ -423,8 +430,7 @@ void test_SendMessageWhenNacked() {
             TEST_ASSERT_EQUAL(DC_TRANSMITTING, d.state);
 
             // Verify that proper message has been transmitted
-            uint8_t *txed_bytes = transmitBytes_fake.arg0_val;
-            unsigned int num_txed_bytes = transmitBytes_fake.arg1_val;
+            const uint8_t *txed_bytes = transmitBytes_fake.arg0_val;
 
             // Verify that this is a DATA frame with correct sequence numbers
             TEST_ASSERT_EQUAL(YAHDLC_FRAME_DATA, ((yahdlc_control_t*)txed_bytes)->frame);
@@ -481,6 +487,8 @@ void test_SendMessageWhenTimeout() {
 
         unsigned int timeout_times = 0;
         bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+            UNUSED_PARAM(condvar);
+            UNUSED_PARAM(timeout);
             // Fake implementation of condvarWait function.
             // This function should be called after the message is transmitted.
             // The mutex should be locked
@@ -492,8 +500,7 @@ void test_SendMessageWhenTimeout() {
             TEST_ASSERT_EQUAL(DC_TRANSMITTING, d.state);
 
             // Verify that proper message has been transmitted
-            uint8_t *txed_bytes = transmitBytes_fake.arg0_val;
-            unsigned int num_txed_bytes = transmitBytes_fake.arg1_val;
+            const uint8_t *txed_bytes = transmitBytes_fake.arg0_val;
 
             // Verify that this is a DATA frame with correct sequence numbers
             TEST_ASSERT_EQUAL(YAHDLC_FRAME_DATA, ((yahdlc_control_t*)txed_bytes)->frame);
@@ -545,6 +552,8 @@ void test_SendMessageFailTooManyNacks() {
 
     unsigned int timeout_times = 0;
     bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+        UNUSED_PARAM(condvar);
+        UNUSED_PARAM(timeout);
         // Fake implementation of condvarWait function.
         // This function should be called after the message is transmitted.
         // The mutex should be locked
@@ -595,6 +604,8 @@ void test_SendMessageFailTooManyTimeouts() {
 
     unsigned int timeout_times = 0;
     bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+        UNUSED_PARAM(condvar);
+        UNUSED_PARAM(timeout);
         // Fake implementation of condvarWait function.
         // This function should be called after the message is transmitted.
         // The mutex should be locked
@@ -644,6 +655,8 @@ void test_SendMessageOtherStationDropsLink() {
     const uint8_t message[] = {0x42, 0x47};
 
     bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+        UNUSED_PARAM(condvar);
+        UNUSED_PARAM(timeout);
         // Fake implementation of condvarWait function.
         // This function should be called after the message is transmitted.
         // The mutex should be locked
@@ -764,7 +777,8 @@ void test_GetMessage() {
         DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
         TEST_ASSERT_EQUAL(DC_OK, res);
 
-        void transmit_bytes_fake_impl(uint8_t *data, uint8_t data_len) {
+        void transmit_bytes_fake_impl(const uint8_t *data, size_t data_len) {
+            UNUSED_PARAM(data_len);
             // Nothing but send confirmation should have been sent
             TEST_ASSERT_EQUAL(YAHDLC_FRAME_ACK, ((yahdlc_control_t*)data)->frame);
             TEST_ASSERT_EQUAL(recv, ((yahdlc_control_t*)data)->recv_seq_no);

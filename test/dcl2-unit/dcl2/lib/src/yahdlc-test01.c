@@ -11,8 +11,8 @@
 void test_FrameDataInvalidInputs() {
     int ret;
     yahdlc_control_t control = {};
-    unsigned int frame_length = 0;
-    char send_data[8] = {0}, frame_data[8];
+    size_t frame_length = 0;
+    uint8_t send_data[8] = {0}, frame_data[8];
 
     // Check invalid control field parameter
     ret = yahdlc_frame_data(NULL, send_data, sizeof(send_data), frame_data, &frame_length);
@@ -39,8 +39,8 @@ void test_FrameDataInvalidInputs() {
 void test_GetDataInvalidInputs() {
     int ret;
     yahdlc_control_t control;
-    unsigned int recv_length = 0;
-    char frame_data[8], recv_data[8];
+    size_t recv_length = 0;
+    uint8_t frame_data[8], recv_data[8];
 
     ret = yahdlc_get_data(NULL, &control, frame_data, sizeof(frame_data), recv_data,
                           &recv_length);
@@ -50,8 +50,8 @@ void test_GetDataInvalidInputs() {
 
 void test_DataFrameControlField() {
     int ret;
-    char frame_data[8], recv_data[8];
-    unsigned int i, j, frame_length = 0, recv_length = 0;
+    uint8_t frame_data[8], recv_data[8];
+    size_t i, j, frame_length = 0, recv_length = 0;
     yahdlc_control_t control_send, control_recv;
     yahdlc_state_t state;
 
@@ -88,8 +88,8 @@ void test_DataFrameControlField() {
 
 void test_AckFrameControlField() {
     int ret;
-    char frame_data[8], recv_data[8];
-    unsigned int i, frame_length = 0, recv_length = 0;
+    uint8_t frame_data[8], recv_data[8];
+    size_t i, frame_length = 0, recv_length = 0;
     yahdlc_control_t control_send, control_recv;
     yahdlc_state_t state;
 
@@ -121,8 +121,8 @@ void test_AckFrameControlField() {
 
 void test_NackFrameControlField() {
     int ret;
-    char frame_data[8], recv_data[8];
-    unsigned int i, frame_length = 0, recv_length = 0;
+    uint8_t frame_data[8], recv_data[8];
+    size_t i, frame_length = 0, recv_length = 0;
     yahdlc_control_t control_send, control_recv;
     yahdlc_state_t state;
 
@@ -154,16 +154,16 @@ void test_NackFrameControlField() {
 
 void test_0To512BytesData() {
     int ret;
-    unsigned int i, frame_length = 0, estimated_frame_length = 0, recv_length = 0;
+    size_t i, frame_length = 0, estimated_frame_length = 0, recv_length = 0;
     yahdlc_control_t control_send = {}, control_recv = {};
-    char send_data[512] = {0}, frame_data[520], recv_data[520];
+    uint8_t send_data[512] = {0}, frame_data[520], recv_data[520];
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);
     // Initialize data to be send with random values (up to 0x70 to keep below the values to be
     // escaped)
     for (i = 0; i < sizeof(send_data); i++) {
-        send_data[i] = (char) (rand() % 0x70);
+        send_data[i] = (uint8_t) (rand() % 0x70);
     }
 
     // Run through the different data sizes
@@ -202,15 +202,15 @@ void test_0To512BytesData() {
 
 void test_5BytesFrame() {
     int ret;
-    unsigned int recv_length = 0;
+    size_t recv_length = 0;
     yahdlc_control_t control;
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);
     // Create an invalid frame with only one byte of FCS
-    char recv_data[8], frame_data[] = { YAHDLC_FLAG_SEQUENCE,
-                                        (char) YAHDLC_ALL_STATION_ADDR, 0x10, 0x33,
-                                        YAHDLC_FLAG_SEQUENCE };
+    uint8_t recv_data[8], frame_data[] = { YAHDLC_FLAG_SEQUENCE,
+                                          (uint8_t) YAHDLC_ALL_STATION_ADDR, 0x10, 0x33,
+                                          YAHDLC_FLAG_SEQUENCE };
 
     // Now decode the frame
     ret = yahdlc_get_data(&state, &control, frame_data, sizeof(frame_data), recv_data,
@@ -225,14 +225,14 @@ void test_5BytesFrame() {
 void test_EndFlagSequenceInNewBuffer() {
     int ret;
     yahdlc_control_t control = {};
-    char send_data[16] = {0}, frame_data[24] = {0}, recv_data[24];
-    unsigned int i, frame_length = 0, recv_length = 0;
+    uint8_t send_data[16] = {0}, frame_data[24] = {0}, recv_data[24];
+    size_t i, frame_length = 0, recv_length = 0;
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);
     // Initialize data to be send with random values (up to 0x70 to keep below the values to be escaped)
     for (i = 0; i < sizeof(send_data); i++) {
-        send_data[i] = (char) (rand() % 0x70);
+        send_data[i] = (uint8_t) (rand() % 0x70);
     }
 
     // Initialize control field structure and create frame
@@ -265,9 +265,9 @@ void test_EndFlagSequenceInNewBuffer() {
 void test_FlagSequenceAndControlEscapeInData() {
     int ret;
     yahdlc_control_t control = {};
-    unsigned int frame_length = 0, recv_length = 0;
-    char send_data[] = { YAHDLC_FLAG_SEQUENCE, 0x11, YAHDLC_CONTROL_ESCAPE },
-         frame_data[16], recv_data[16];
+    size_t frame_length = 0, recv_length = 0;
+    uint8_t send_data[] = { YAHDLC_FLAG_SEQUENCE, 0x11, YAHDLC_CONTROL_ESCAPE },
+                          frame_data[16], recv_data[16];
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);
@@ -295,14 +295,14 @@ void test_FlagSequenceAndControlEscapeInData() {
 void test_getDataFromMultipleBuffers() {
     int ret;
     yahdlc_control_t control = {};
-    char send_data[512] = {0}, frame_data[530] = {0}, recv_data[530];
-    unsigned int i, frame_length = 0, recv_length = 0, buf_length = 16;
+    uint8_t send_data[512] = {0}, frame_data[530] = {0}, recv_data[530];
+    size_t i, frame_length = 0, recv_length = 0, buf_length = 16;
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);
     // Initialize data to be send with random values (up to 0x70 to keep below the values to be escaped)
     for (i = 0; i < sizeof(send_data); i++) {
-        send_data[i] = (char) (rand() % 0x70);
+        send_data[i] = (uint8_t) (rand() % 0x70);
     }
 
     // Initialize control field structure and create frame
@@ -341,8 +341,8 @@ void test_getDataFromMultipleBuffers() {
 void test_MultipleFramesWithSingleFlagSequence() {
     int ret, frame_index = 0;
     yahdlc_control_t control = {};
-    char send_data[32] = {0}, frame_data[512], recv_data[512];
-    unsigned int i, frame_length = 0, recv_length = 0, frames = 10;
+    uint8_t send_data[32] = {0}, frame_data[512], recv_data[512];
+    size_t i, frame_length = 0, recv_length = 0, frames = 10;
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);
@@ -394,8 +394,8 @@ void test_MultipleFramesWithSingleFlagSequence() {
 void test_MultipleFramesWithDoubleFlagSequence() {
     int ret, frame_index = 0;
     yahdlc_control_t control = {};
-    char send_data[32] = {0}, frame_data[512], recv_data[512];
-    unsigned int i, frame_length = 0, recv_length = 0, frames = 10;
+    uint8_t send_data[32] = {0}, frame_data[512], recv_data[512];
+    size_t i, frame_length = 0, recv_length = 0, frames = 10;
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);
@@ -445,8 +445,8 @@ void test_MultipleFramesWithDoubleFlagSequence() {
 void test_FramesWithBitErrors() {
     int ret;
     yahdlc_control_t control = {};
-    unsigned int i, frame_length = 0, recv_length = 0;
-    char send_data[] = { 0x55 }, frame_data[8], recv_data[8];
+    size_t i, frame_length = 0, recv_length = 0;
+    uint8_t send_data[] = { 0x55 }, frame_data[8], recv_data[8];
     yahdlc_state_t state;
 
     yahdlc_reset_state(&state);

@@ -3,12 +3,15 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 #include "unity.h"
 #include "fff.h"
 #include "leaky-pipe.h"
 #include "dcl2.h"
 #include "dcl2-pthreads.h"
 #include "common.h"
+
+#define UNUSED_PARAM(x)  (void)(x);
 
 /**************************************************************************************************/
 /* Misc helpers */
@@ -93,15 +96,16 @@ void* rx_handle_thread(void *p) {
         dcProcessData(rp->station, b, 1);
         pthread_testcancel();
     }
+    return NULL;
 }
 
-void station_c_tx(uint8_t *bytes, uint8_t b_l) {
+void station_c_tx(const uint8_t *bytes, size_t b_l) {
     for (unsigned int i = 0; i < b_l; i++) {
         lp_transmit(c_tx_pipe, bytes[i]);
     }
 }
 
-void station_r_tx(uint8_t *bytes, uint8_t b_l) {
+void station_r_tx(const uint8_t *bytes, size_t b_l) {
     for (unsigned int i = 0; i < b_l; i++) {
         lp_transmit(r_tx_pipe, bytes[i]);
     }
@@ -171,7 +175,6 @@ void setUp(void) {
 }
 
 void tearDown(void) {
-    unsigned int f;
     cutLinks();
     sleep(1);
     for (int i = 0; i < TEST_THREADS; i++) {
@@ -196,6 +199,7 @@ void tearDown(void) {
 /* Common test threads and elements */
 
 static void* sender_1000msg_thread(void *p) {
+    UNUSED_PARAM(p);
     unsigned int r1 = 1;
     unsigned int conn_attempt;
     // multiple connection attempts, since we are working over lossy link
@@ -217,6 +221,7 @@ static void* sender_1000msg_thread(void *p) {
 }
 
 static void* receiver_1000msg_thread(void *p) {
+    UNUSED_PARAM(p);
     unsigned int r2 = 1;
     for (unsigned int i = 0; i < 1000; i++) {
         int16_t msgLen;
@@ -237,7 +242,7 @@ static void* receiver_1000msg_thread(void *p) {
         THREADED_ASSERT(120 == msgLen);
         uint8_t rcvdMessage[msgLen];
         THREADED_ASSERT(msgLen == dcGetReceivedMsg(dr, rcvdMessage));
-        for (unsigned int j = 0; j < msgLen; j++) {
+        for (int16_t j = 0; j < msgLen; j++) {
             THREADED_ASSERT((rand_r(&r2) % 256) == rcvdMessage[j]);
         }
         pthread_testcancel();
@@ -261,6 +266,7 @@ void run_1000msg_test(lp_args_t *args_c_tx, lp_args_t *args_r_tx) {
 }
 
 static void* sender_1msg_thread(void *p) {
+    UNUSED_PARAM(p);
     unsigned int seed = 1;
     uint8_t message[10] = {0};
     for (unsigned int i = 0; i < sizeof(message); i++) {
@@ -281,6 +287,7 @@ static void* sender_1msg_thread(void *p) {
 }
 
 static void* receiver_1msg_thread(void *p) {
+    UNUSED_PARAM(p);
     unsigned int seed = 1;
     uint8_t message[10] = {0};
     for (unsigned int i = 0; i < sizeof(message); i++) {

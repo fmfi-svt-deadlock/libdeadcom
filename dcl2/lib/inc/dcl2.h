@@ -96,6 +96,9 @@ typedef struct {
     uint8_t scratchpadBuffer[DEADCOM_PAYLOAD_MAX_LEN];
 
     // Length of extracted data, if any.
+    // Type of this should be size_t, but we need it to be singed and I don't feel like using
+    // ssize_t since it comes from POSIX, not the C standard. This code must run on devices that
+    // never heard of POSIX.
     int16_t extractionBufferSize;
 
     // Does extractionBuffer contain the whole message or only a part of it?
@@ -120,7 +123,7 @@ typedef struct {
     DeadcomL2LastResponse last_response;
 
     // Function for transmitting outgoing bytes
-    void (*transmitBytes)(uint8_t*, uint8_t);
+    void (*transmitBytes)(const uint8_t*, size_t);
 
     // Pointer to mutex for locking this structure
     void *mutex_p;
@@ -152,7 +155,7 @@ typedef struct {
  * @retval DC_FAILURE  Invalid parameters
  */
 DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *mutex_p, void *condvar_p,
-                       DeadcomL2ThreadingVMT *t, void (*transmitBytes)(uint8_t*, uint8_t));
+                       DeadcomL2ThreadingVMT *t, void (*transmitBytes)(const uint8_t*, size_t));
 
 /**
  * Try to establish a connection.
@@ -211,8 +214,7 @@ DeadcomL2Result dcDisconnect(DeadcomL2 *deadcom);
  *                         the frame and the link has been reset as the result.
  * @retval  DC_FAILURE  Incorrect parameters or message too long
  */
-DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, const uint8_t *message,
-                              const uint8_t message_len);
+DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, const uint8_t *message, size_t message_len);
 
 /**
  * Get received message length.
@@ -270,7 +272,7 @@ int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer);
  * @param[in] data  Data that were just received
  * @param[in] len  Number of received bytes
  */
-DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, uint8_t *data, uint8_t len);
+DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, const uint8_t *data, size_t len);
 
 
 #endif

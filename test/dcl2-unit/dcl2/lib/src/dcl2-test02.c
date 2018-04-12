@@ -5,12 +5,16 @@
 #include "dcl2.h"
 #include "dcl2-fakes.c"
 
+#define UNUSED_PARAM(x)  (void)(x);
+
 /*
  * Tests of Deadcom Layer 2 library, part 2: Receiving and processing frames
  */
 
-int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                  unsigned int src_len, char* dest, unsigned int *dest_len) {
+int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                             size_t src_len, uint8_t* dest, size_t *dest_len) {
+    UNUSED_PARAM(state);
+    UNUSED_PARAM(src);
     uint8_t data[] = {0, 1, 2, 3, 4, 5};
     control->frame = YAHDLC_FRAME_DATA;
     control->recv_seq_no = 0;
@@ -20,30 +24,43 @@ int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, c
     return src_len;
 }
 
-int get_data_fake_ack_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                  unsigned int src_len, char* dest, unsigned int *dest_len) {
+int get_data_fake_ack_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                            size_t src_len, uint8_t* dest, size_t *dest_len) {
+    UNUSED_PARAM(state);
+    UNUSED_PARAM(src);
+    UNUSED_PARAM(dest);
     control->frame = YAHDLC_FRAME_ACK;
     control->recv_seq_no = 0;
     *dest_len = 0;
     return src_len;
 }
 
-int get_data_fake_nack_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                  unsigned int src_len, char* dest, unsigned int *dest_len) {
+int get_data_fake_nack_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                             size_t src_len, uint8_t* dest, size_t *dest_len) {
+    UNUSED_PARAM(state);
+    UNUSED_PARAM(src);
+    UNUSED_PARAM(dest);
     control->frame = YAHDLC_FRAME_NACK;
     *dest_len = 0;
     return src_len;
 }
 
-int get_data_fake_conn_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                  unsigned int src_len, char* dest, unsigned int *dest_len) {
+int get_data_fake_conn_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                             size_t src_len, uint8_t* dest, size_t *dest_len) {
+    UNUSED_PARAM(state);
+    UNUSED_PARAM(src);
+    UNUSED_PARAM(dest);
     control->frame = YAHDLC_FRAME_CONN;
     *dest_len = 0;
     return src_len;
 }
 
-int get_data_fake_connack_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                  unsigned int src_len, char* dest, unsigned int *dest_len) {
+int get_data_fake_connack_frame(yahdlc_state_t *state, yahdlc_control_t *control,
+                                const uint8_t *src, size_t src_len, uint8_t* dest,
+                                size_t *dest_len) {
+    UNUSED_PARAM(state);
+    UNUSED_PARAM(src);
+    UNUSED_PARAM(dest);
     control->frame = YAHDLC_FRAME_CONN_ACK;
     *dest_len = 0;
     return src_len;
@@ -77,9 +94,14 @@ void test_PDFailsOnYahdlcFailure() {
     DeadcomL2 d;
     uint8_t data[] = {0, 1, 2, 3, 4, 5};
 
-    unsigned int seen_bytes = 0;
-    int get_data_fake(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char* dest, unsigned int *dest_len) {
+    int get_data_fake(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                      size_t src_len, uint8_t* dest, size_t *dest_len) {
+        UNUSED_PARAM(state);
+        UNUSED_PARAM(control);
+        UNUSED_PARAM(src);
+        UNUSED_PARAM(src_len);
+        UNUSED_PARAM(dest);
+        UNUSED_PARAM(dest_len);
         return -EINVAL;
     }
     yahdlc_get_data_fake.custom_fake = &get_data_fake;
@@ -98,8 +120,12 @@ void test_PDProcessesWholeBuffer() {
     uint8_t data[] = {0, 1, 2, 3, 4, 5};
 
     unsigned int seen_bytes = 0;
-    int get_data_fake(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char* dest, unsigned int *dest_len) {
+    int get_data_fake(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                      size_t src_len, uint8_t* dest, size_t *dest_len) {
+        UNUSED_PARAM(state);
+        UNUSED_PARAM(control);
+        UNUSED_PARAM(src_len);
+        UNUSED_PARAM(dest);
         TEST_ASSERT_EQUAL(seen_bytes, src[0]);
         TEST_ASSERT_EQUAL(seen_bytes+1, src[1]);
         seen_bytes += 2;
@@ -179,7 +205,8 @@ void test_PDProcessConnWhenDisconnected() {
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
-    void transmitBytes_fake_impl(uint8_t *data, uint8_t len) {
+    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+        UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
     }
@@ -289,7 +316,8 @@ void test_PDProcessConnWhenConnecting() {
 
     d.state = DC_CONNECTING;
 
-    void transmitBytes_fake_impl(uint8_t *data, uint8_t len) {
+    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+        UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
     }
@@ -385,7 +413,8 @@ void test_PDProcessConnWhenConnected() {
     d.state = DC_CONNECTED;
     d.send_number = 3;
 
-    void transmitBytes_fake_impl(uint8_t *data, uint8_t len) {
+    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+        UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
     }
@@ -477,7 +506,8 @@ void test_PDProcessConnWhenTransmitting() {
     d.state = DC_TRANSMITTING;
     d.send_number = 3;
 
-    void transmitBytes_fake_impl(uint8_t *data, uint8_t len) {
+    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+        UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
     }
@@ -523,8 +553,10 @@ void test_PDDataCorrectSeq() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char* dest, unsigned int *dest_len) {
+    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                                 size_t src_len, uint8_t* dest, size_t *dest_len) {
+        UNUSED_PARAM(state);
+        UNUSED_PARAM(src);
         uint8_t data[] = {0, 1, 2, 3, 4, 5};
         control->frame = YAHDLC_FRAME_DATA;
         control->send_seq_no = 0;
@@ -556,8 +588,10 @@ void test_PDDataAlreadySeenNotAcked() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char* dest, unsigned int *dest_len) {
+    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                                 size_t src_len, uint8_t* dest, size_t *dest_len) {
+        UNUSED_PARAM(state);
+        UNUSED_PARAM(src);
         uint8_t data[] = {0, 1, 2, 3, 4, 5};
         control->frame = YAHDLC_FRAME_DATA;
         control->send_seq_no = 0;
@@ -592,8 +626,10 @@ void test_PDDataAlreadySeenAndAcked() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char* dest, unsigned int *dest_len) {
+    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                                 size_t src_len, uint8_t* dest, size_t *dest_len) {
+        UNUSED_PARAM(state);
+        UNUSED_PARAM(src);
         uint8_t data[] = {0, 1, 2, 3, 4, 5};
         control->frame = YAHDLC_FRAME_DATA;
         control->send_seq_no = 0;
@@ -603,7 +639,8 @@ void test_PDDataAlreadySeenAndAcked() {
         return src_len;
     }
 
-    void transmitBytes_fake_impl(uint8_t *data, uint8_t len) {
+    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+        UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_ACK, ((yahdlc_control_t*)data)->frame);
         TEST_ASSERT_EQUAL(0, ((yahdlc_control_t*)data)->recv_seq_no);
@@ -637,8 +674,10 @@ void test_PDDataReceiveWithoutAck() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char* dest, unsigned int *dest_len) {
+    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                                 size_t src_len, uint8_t* dest, size_t *dest_len) {
+        UNUSED_PARAM(state);
+        UNUSED_PARAM(src);
         control->frame = YAHDLC_FRAME_DATA;
         control->send_seq_no = 0;
         control->recv_seq_no = 0;
@@ -664,8 +703,10 @@ void test_PDDataReceiveWithoutAck() {
     FFF_FAKES_LIST(RESET_FAKE);
     FFF_RESET_HISTORY();
 
-    int get_data_fake_data_frame2(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char* dest, unsigned int *dest_len) {
+    int get_data_fake_data_frame2(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                                 size_t src_len, uint8_t* dest, size_t *dest_len) {
+        UNUSED_PARAM(state);
+        UNUSED_PARAM(src);
         control->frame = YAHDLC_FRAME_DATA;
         control->send_seq_no = 1;
         control->recv_seq_no = 0;
@@ -694,8 +735,10 @@ void test_PDDataIncorrectSeq() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char* dest, unsigned int *dest_len) {
+    int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                                 size_t src_len, uint8_t* dest, size_t *dest_len) {
+        UNUSED_PARAM(state);
+        UNUSED_PARAM(src);
         uint8_t data[] = {0, 1, 2, 3, 4, 5};
         control->frame = YAHDLC_FRAME_DATA;
         control->send_seq_no = 5;

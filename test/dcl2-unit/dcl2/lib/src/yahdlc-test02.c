@@ -10,8 +10,8 @@
 
 void test_ConnFrameControlField() {
     int ret;
-    char frame_data[8], recv_data[8];
-    unsigned int i, frame_length = 0, recv_length = 0;
+    uint8_t frame_data[8], recv_data[8];
+    size_t frame_length = 0, recv_length = 0;
     yahdlc_control_t control_send, control_recv;
     yahdlc_state_t state;
 
@@ -38,8 +38,8 @@ void test_ConnFrameControlField() {
 
 void test_ConnAckFrameControlField() {
     int ret;
-    char frame_data[8], recv_data[8];
-    unsigned int i, frame_length = 0, recv_length = 0;
+    uint8_t frame_data[8], recv_data[8];
+    size_t frame_length = 0, recv_length = 0;
     yahdlc_control_t control_send, control_recv;
     yahdlc_state_t state;
 

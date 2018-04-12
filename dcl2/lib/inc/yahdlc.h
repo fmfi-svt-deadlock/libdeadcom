@@ -29,6 +29,9 @@ This file was modified for use in Project Deadlock (component libdeadcom). Notab
   - Addition of several new HDLC frames to deal with link establishment and reset
   - Removal of the global state structure and functions dealing with it, since they won't be
     used
+  - Change types to represent the correct semantic meaning: if function takes bytes, not a string
+    it should use `uint8_t *b`, not `char *b`. If function takes size of buffer as parameter,
+    `size_t` should be used, not `unsigned int`.
 */
 
 
@@ -39,6 +42,8 @@ This file was modified for use in Project Deadlock (component libdeadcom). Notab
 #ifndef YAHDLC_H
 #define YAHDLC_H
 
+#include <stddef.h>
+#include <stdint.h>
 #include <errno.h>
 
 /** FCS initialization value. */
@@ -68,8 +73,8 @@ typedef enum {
 /** Control field information */
 typedef struct {
     yahdlc_frame_t frame;
-    unsigned char send_seq_no :3;
-    unsigned char recv_seq_no :3;
+    uint8_t send_seq_no :3;
+    uint8_t recv_seq_no :3;
 } yahdlc_control_t;
 
 /**
@@ -77,14 +82,14 @@ typedef struct {
  * to keep track of received buffers
  */
 typedef struct {
-    char control_escape;
-    unsigned short fcs;
-    int start_index;
-    int end_index;
-    int src_index;
-    int frame_byte_index;
-    int dest_index;
-    char frame_control;
+    uint8_t control_escape;
+    uint16_t fcs;
+    ptrdiff_t start_index;
+    ptrdiff_t end_index;
+    ptrdiff_t src_index;
+    unsigned int frame_byte_index;
+    ptrdiff_t dest_index;
+    uint8_t frame_control;
 } yahdlc_state_t;
 
 /**
@@ -94,7 +99,7 @@ typedef struct {
  * @param value The value to be added
  * @returns Calculated FCS value
  */
-unsigned short fcs16(unsigned short fcs, unsigned char value);
+uint16_t fcs16(uint16_t fcs, uint8_t value);
 
 /**
  * Resets values used in yahdlc_get_data function to keep track of received buffers
@@ -118,8 +123,8 @@ void yahdlc_reset_state(yahdlc_state_t *state);
  * @retval -EIO Invalid FCS (size of dest_len should be discarded from source buffer)
  *
  */
-int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                    unsigned int src_len, char *dest, unsigned int *dest_len);
+int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                    size_t src_len, uint8_t *dest, size_t *dest_len);
 
 /**
  * Creates HDLC frame with specified data buffer.
@@ -134,7 +139,7 @@ int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const char
  * @retval 0 Success
  * @retval -EINVAL Invalid parameter
  */
-int yahdlc_frame_data(yahdlc_control_t *control, const char *src, unsigned int src_len,
-                      char *dest, unsigned int *dest_len);
+int yahdlc_frame_data(yahdlc_control_t *control, const uint8_t *src, size_t src_len,
+                      uint8_t *dest, size_t *dest_len);
 
 #endif

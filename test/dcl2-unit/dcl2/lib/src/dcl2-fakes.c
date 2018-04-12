@@ -1,16 +1,16 @@
 DEFINE_FFF_GLOBALS;
 
-FAKE_VOID_FUNC(transmitBytes, uint8_t*, uint8_t);
+FAKE_VOID_FUNC(transmitBytes, const uint8_t*, size_t);
 FAKE_VOID_FUNC(mutexInit, void*);
 FAKE_VOID_FUNC(mutexLock, void*);
 FAKE_VOID_FUNC(mutexUnlock, void*);
 FAKE_VOID_FUNC(condvarInit,  void*);
 FAKE_VALUE_FUNC(bool, condvarWait, void*, uint32_t);
 FAKE_VOID_FUNC(condvarSignal, void*);
-FAKE_VALUE_FUNC(int, yahdlc_frame_data, yahdlc_control_t*, const char*, unsigned int, char*,
-                unsigned int*);
-FAKE_VALUE_FUNC(int, yahdlc_get_data, yahdlc_state_t*, yahdlc_control_t*, const char*, unsigned int,
-                char*, unsigned int*);
+FAKE_VALUE_FUNC(int, yahdlc_frame_data, yahdlc_control_t*, const uint8_t*, size_t, uint8_t*,
+                size_t*);
+FAKE_VALUE_FUNC(int, yahdlc_get_data, yahdlc_state_t*, yahdlc_control_t*, const uint8_t*, size_t,
+                uint8_t*, size_t*);
 
 #define FFF_FAKES_LIST(FAKE)        \
     FAKE(transmitBytes)             \
@@ -40,8 +40,8 @@ DeadcomL2ThreadingVMT t = {
  * | (sizeof(yahdlc_control_t))  | 4 bytes     | message_len                                |
  * +-----------------------------+-------------+--------------------------------------------+
  */
-int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned int data_len,
-                         char *output_frame, unsigned int *output_frame_len) {
+int frame_data_fake_impl(yahdlc_control_t *control, const uint8_t *data, size_t data_len,
+                         uint8_t *output_frame, size_t *output_frame_len) {
 
     if (output_frame) {
         // Control struct
@@ -66,4 +66,6 @@ int frame_data_fake_impl(yahdlc_control_t *control, const char *data, unsigned i
         }
         *output_frame_len += data_len;
     }
+
+    return 0;
 }

@@ -38,6 +38,10 @@ This file was modified for use in Project Deadlock (component libdeadcom). Notab
   - Return valid control struct from yahdlc_get_data if and only if return value is >= 0
     (and therefore valid frame was received), so that caller doesn't have to keep track of control
     struct from previous calls when parsing byte-by-byte from serial link.
+  - Change types to represent the correct semantic meaning: if function takes 8-bit bytes, not a
+    string of characters, it should use `uint8_t *b`, not `char *b`. If function takes size of
+    buffer as parameter, `size_t` should be used, not `unsigned int`. `unsigned short` is not
+    guaranteed to be 16 bits, use `uint16_t` instead.
 */
 
 #include "yahdlc.h"
@@ -66,7 +70,7 @@ This file was modified for use in Project Deadlock (component libdeadcom). Notab
 #define YAHDLC_U_FRAME_CONN_ACK_CHECK 0x03
 
 
-static const unsigned short fcstab[256] = { 0x0000, 0x1189, 0x2312, 0x329b,
+static const uint16_t fcstab[256] = { 0x0000, 0x1189, 0x2312, 0x329b,
     0x4624, 0x57ad, 0x6536, 0x74bf, 0x8c48, 0x9dc1, 0xaf5a, 0xbed3, 0xca6c,
     0xdbe5, 0xe97e, 0xf8f7, 0x1081, 0x0108, 0x3393, 0x221a, 0x56a5, 0x472c,
     0x75b7, 0x643e, 0x9cc9, 0x8d40, 0xbfdb, 0xae52, 0xdaed, 0xcb64, 0xf9ff,
@@ -97,12 +101,12 @@ static const unsigned short fcstab[256] = { 0x0000, 0x1189, 0x2312, 0x329b,
     0x8330, 0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78
 };
 
-unsigned short fcs16(unsigned short fcs, unsigned char value) {
+uint16_t fcs16(uint16_t fcs, uint8_t value) {
     return (fcs >> 8) ^ fcstab[(fcs ^ value) & 0xff];
 }
 
 
-void yahdlc_escape_value(char value, char *dest, int *dest_index) {
+void yahdlc_escape_value(uint8_t value, uint8_t *dest, ptrdiff_t *dest_index) {
     // Check and escape the value if needed
     if ((value == YAHDLC_FLAG_SEQUENCE) || (value == YAHDLC_CONTROL_ESCAPE)) {
         if (dest) {
@@ -122,7 +126,7 @@ void yahdlc_escape_value(char value, char *dest, int *dest_index) {
 }
 
 
-yahdlc_control_t yahdlc_get_control_type(unsigned char control) {
+yahdlc_control_t yahdlc_get_control_type(uint8_t control) {
     yahdlc_control_t value = {};
 
     // Check if the frame is a S-frame (or U-frame)
@@ -158,8 +162,8 @@ yahdlc_control_t yahdlc_get_control_type(unsigned char control) {
 }
 
 
-unsigned char yahdlc_frame_control_type(yahdlc_control_t *control) {
-    unsigned char value = 0;
+uint8_t yahdlc_frame_control_type(yahdlc_control_t *control) {
+    uint8_t value = 0;
 
     // For details see: https://en.wikipedia.org/wiki/High-Level_Data_Link_Control
     switch (control->frame) {
@@ -213,11 +217,11 @@ void yahdlc_reset_state(yahdlc_state_t *state) {
 }
 
 
-int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const char *src,
-                    unsigned int src_len, char *dest, unsigned int *dest_len) {
+int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
+                    size_t src_len, uint8_t *dest, size_t *dest_len) {
     int ret;
-    char value;
-    unsigned int i;
+    uint8_t value;
+    size_t i;
 
     // Make sure that all parameters are valid
     if (!state || !control || !src || !dest || !dest_len) {
@@ -305,12 +309,12 @@ int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const char
     return ret;
 }
 
-int yahdlc_frame_data(yahdlc_control_t *control, const char *src,
-                      unsigned int src_len, char *dest, unsigned int *dest_len) {
-    unsigned int i;
-    int dest_index = 0;
-    unsigned char value = 0;
-    unsigned short fcs = FCS16_INIT_VALUE;
+int yahdlc_frame_data(yahdlc_control_t *control, const uint8_t *src,
+                      size_t src_len, uint8_t *dest, size_t *dest_len) {
+    size_t i;
+    ptrdiff_t dest_index = 0;
+    uint8_t value = 0;
+    uint16_t fcs = FCS16_INIT_VALUE;
 
     // Make sure that all parameters are valid
     if (!control || (!src && (src_len > 0)) || !dest_len) {

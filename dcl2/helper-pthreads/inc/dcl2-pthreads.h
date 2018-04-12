@@ -37,7 +37,7 @@ typedef struct {
  *
  * All present params and return values are the same as `dcInit`
  */
-DeadcomL2Result dcPthreadsInit(DeadcomL2 *deadcom, void (*transmitBytes)(uint8_t*, uint8_t));
+DeadcomL2Result dcPthreadsInit(DeadcomL2 *deadcom, void (*transmitBytes)(const uint8_t*, size_t));
 
 
 /**

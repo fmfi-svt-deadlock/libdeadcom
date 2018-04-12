@@ -12,8 +12,10 @@
 
 #include "common.h"
 
+#define UNUSED_PARAM(x)  (void)(x);
+
 DEFINE_FFF_GLOBALS;
-FAKE_VOID_FUNC(dummyTransmitBytes, uint8_t*, uint8_t);
+FAKE_VOID_FUNC(dummyTransmitBytes, const uint8_t*, size_t);
 
 
 void test_InitializeDCL2Pthreads() {
@@ -24,6 +26,7 @@ void test_InitializeDCL2Pthreads() {
 
 
 void* try_connect_thread(void* p) {
+    UNUSED_PARAM(p);
     dcConnect(dc);
     dcConnect(dc);
     THREAD_EXIT_OK();

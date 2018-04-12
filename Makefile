@@ -69,7 +69,7 @@ DCL2_PTHREADS_SRC     = $(shell find $(DCL2_PTHREADS_SOURCE) -type f -name '*.c'
 
 DCL2_PTHREADS_TARGET  =
 DCL2_PTHREADS_CC      = $(DCL2_PTHREADS_TARGET)gcc
-DCL2_PTHREADS_CFLAGS  = -I$(DCL2_INCLUDE) -I$(DCL2_PTHREADS_INCLUDE) -lpthread -fpic -shared
+DCL2_PTHREADS_CFLAGS  = -I$(DCL2_INCLUDE) -I$(DCL2_PTHREADS_INCLUDE) -lpthread -fpic -shared -Wall -Wextra
 
 build/dcl2-pthread.so: $(DCL2_SRC) $(DCL2_PTHREADS_SRC)
 	$(DCL2_PTHREADS_CC) $(DCL2_PTHREADS_CFLAGS) $^ -o $@
@@ -93,7 +93,7 @@ LP_SRC 		   += $(shell find $(PIPE_SOURCE) -type f -name '*.c')
 
 LP_TARGET       =
 LP_CC           = $(LP_TARGET)gcc
-LP_CFLAGS       = -I$(LP_INCLUDE) -I$(PIPE_INCLUDE) -lpthread -fpic -shared
+LP_CFLAGS       = -I$(LP_INCLUDE) -I$(PIPE_INCLUDE) -lpthread -fpic -shared -Wall -Wextra
 
 build/leaky-pipe.so: $(LP_SRC)
 	@mkdir -p `dirname $@`
