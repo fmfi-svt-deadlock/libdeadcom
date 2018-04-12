@@ -130,8 +130,8 @@ typedef struct DeadcomCRPM {
  * @retval DCRCP_STATUS_BUFFER_SMALL  Buffer too small for encoded byte
  * @retval DCRCP_STATUS_OUT_OF_MEMORY  Can't allocate memory required for CRPM encoding
  */
-DCRCPStatus dcrcpEncode(DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf_size, size_t *out_size,
-                        cn_cbor_context *ctx);
+DCRCPStatus dcrcpEncode(const DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf_size,
+                        size_t *out_size, cn_cbor_context *ctx);
 
 
 /**
@@ -150,7 +150,7 @@ DCRCPStatus dcrcpEncode(DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf_size,
  *
  * @see dcrcpEncode
  */
-DCRCPStatus dcrcpDecode(DeadcomCRPM *crpm_out, uint8_t *buf_in, size_t buf_size,
+DCRCPStatus dcrcpDecode(DeadcomCRPM *crpm_out, const uint8_t *buf_in, size_t buf_size,
                         cn_cbor_context *ctx);
 
 

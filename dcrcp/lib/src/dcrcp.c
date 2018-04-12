@@ -50,8 +50,8 @@
     }
 
 
-DCRCPStatus dcrcpEncode(DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf_size, size_t *out_size,
-                        cn_cbor_context *ctx) {
+DCRCPStatus dcrcpEncode(const DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf_size,
+                        size_t *out_size, cn_cbor_context *ctx) {
     if (crpm_in == NULL || buf_out == NULL || buf_size == 0 || out_size == NULL || ctx == NULL) {
         return DCRCP_STATUS_INVALID_PARAM;
     }
@@ -156,7 +156,7 @@ DCRCPStatus dcrcpEncode(DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf_size,
 
 
 // TODO this decoder does not handle chunked text / bytes at all!
-DCRCPStatus dcrcpDecode(DeadcomCRPM *crpm_out, uint8_t *buf_in, size_t buf_size,
+DCRCPStatus dcrcpDecode(DeadcomCRPM *crpm_out, const uint8_t *buf_in, size_t buf_size,
                         cn_cbor_context *ctx) {
     if (crpm_out == NULL || buf_in == NULL || buf_size == 0 || ctx == NULL) {
         return DCRCP_STATUS_INVALID_PARAM;
