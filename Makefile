@@ -188,7 +188,7 @@ DCRCP_SRC       = $(shell find $(DCRCP_SOURCE) -type f -name '*.c')
 
 DCRCP_TARGET  =
 DCRCP_CC      = $(DCRCP_TARGET)gcc
-DCRCP_CFLAGS  = -I$(DCRCP_INCLUDE) -I$(CN_CBOR_INCLUDE) -fpic -shared -DUSE_CBOR_CONTEXT
+DCRCP_CFLAGS  = -I$(DCRCP_INCLUDE) -I$(CN_CBOR_INCLUDE) -fpic -shared -DUSE_CBOR_CONTEXT -Wall -Wextra
 
 build/dcrcp.so: $(DCRCP_SRC) $(CN_CBOR_SRC)
 	$(DCRCP_CC) $(DCRCP_CFLAGS) $^ -o $@

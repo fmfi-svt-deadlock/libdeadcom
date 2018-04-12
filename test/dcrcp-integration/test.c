@@ -54,6 +54,7 @@ cn_cbor_context* create_limited_context(size_t alloc_limit) {
     r->context = ctx;
     r->calloc_func = context_calloc;
     r->free_func = context_free;
+    return r;
 }
 
 
