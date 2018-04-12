@@ -72,6 +72,7 @@ DCL2_PTHREADS_CC      = $(DCL2_PTHREADS_TARGET)gcc
 DCL2_PTHREADS_CFLAGS  = -I$(DCL2_INCLUDE) -I$(DCL2_PTHREADS_INCLUDE) -lpthread -fpic -shared -Wall -Wextra
 
 build/dcl2-pthread.so: $(DCL2_SRC) $(DCL2_PTHREADS_SRC)
+	mkdir -p build/
 	$(DCL2_PTHREADS_CC) $(DCL2_PTHREADS_CFLAGS) $^ -o $@
 
 #

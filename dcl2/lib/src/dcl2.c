@@ -15,7 +15,8 @@ static void resetLink(DeadcomL2 *deadcom) {
 
 DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *_mutex_p, void *_condvar_p,
                        DeadcomL2ThreadingMethods *_t,
-                       bool (*transmitBytes)(const uint8_t*, size_t)) {
+                       bool (*transmitBytes)(const uint8_t*, size_t, void*),
+                       void *transmissionContext) {
     if (deadcom == NULL || transmitBytes == NULL || _mutex_p == NULL || _condvar_p == NULL ||
         _t == NULL) {
         return DC_FAILURE;
@@ -28,6 +29,7 @@ DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *_mutex_p, void *_condvar_p,
     deadcom->mutex_p = _mutex_p;
     deadcom->condvar_p = _condvar_p;
     deadcom->t = _t;
+    deadcom->transmission_context_p = transmissionContext;
 
     // Initialize synchronization objects
     if (!deadcom->t->mutexInit(deadcom->mutex_p)) {return DC_FAILURE;}
@@ -68,7 +70,7 @@ DeadcomL2Result dcConnect(DeadcomL2 *deadcom) {
     uint8_t frame_data[frame_length];
     yahdlc_frame_data(&control_connect, NULL, 0, frame_data, &frame_length);
 
-    if (!deadcom->transmitBytes(frame_data, frame_length)) {
+    if (!deadcom->transmitBytes(frame_data, frame_length, deadcom->transmission_context_p)) {
         deadcom->state = DC_DISCONNECTED;
         deadcom->t->mutexUnlock(deadcom->mutex_p);
         return DC_FAILURE;
@@ -154,7 +156,7 @@ DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, const uint8_t *message, size_t
         deadcom->failure_count = 0;
         while (deadcom->failure_count < DEADCOM_MAX_FAILURE_COUNT) {
 
-            if (!deadcom->transmitBytes(frame, frame_len)) {
+            if (!deadcom->transmitBytes(frame, frame_len, deadcom->transmission_context_p)) {
                 deadcom->state = DC_CONNECTED;
                 deadcom->send_number = (deadcom->send_number + 7) % 8;
                 deadcom->t->mutexUnlock(deadcom->mutex_p);
@@ -230,7 +232,7 @@ DeadcomL2Result dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer, size_t *ms
 
         uint8_t ack_frame[ack_frame_length];
         yahdlc_frame_data(&control_ack, NULL, 0, ack_frame, &ack_frame_length);
-        if (!deadcom->transmitBytes(ack_frame, ack_frame_length)) {
+        if (!deadcom->transmitBytes(ack_frame, ack_frame_length, deadcom->transmission_context_p)) {
             deadcom->t->mutexUnlock(deadcom->mutex_p);
             return DC_FAILURE;
         }
@@ -307,7 +309,8 @@ DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, const uint8_t *data, size_t le
 
                             uint8_t ack_frame[ack_frame_length];
                             yahdlc_frame_data(&control_ack, NULL, 0, ack_frame, &ack_frame_length);
-                            if (!deadcom->transmitBytes(ack_frame, ack_frame_length)) {
+                            if (!deadcom->transmitBytes(ack_frame, ack_frame_length,
+                                deadcom->transmission_context_p)) {
                                 deadcom->t->mutexUnlock(deadcom->mutex_p);
                                 return DC_FAILURE;
                             }
@@ -359,7 +362,8 @@ DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, const uint8_t *data, size_t le
                     {
                         uint8_t resp_f[f_len];
                         yahdlc_frame_data(&resp_ctrl, NULL, 0, resp_f, &f_len);
-                        if (!deadcom->transmitBytes(resp_f, f_len)) {
+                        if (!deadcom->transmitBytes(resp_f, f_len,
+                            deadcom->transmission_context_p)) {
                             deadcom->t->mutexUnlock(deadcom->mutex_p);
                             return DC_FAILURE;
                         }

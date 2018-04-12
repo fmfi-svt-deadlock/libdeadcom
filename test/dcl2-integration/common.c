@@ -99,14 +99,16 @@ void* rx_handle_thread(void *p) {
     return NULL;
 }
 
-bool station_c_tx(const uint8_t *bytes, size_t b_l) {
+bool station_c_tx(const uint8_t *bytes, size_t b_l, void *context) {
+    UNUSED_PARAM(context);
     for (unsigned int i = 0; i < b_l; i++) {
         lp_transmit(c_tx_pipe, bytes[i]);
     }
     return true;
 }
 
-bool station_r_tx(const uint8_t *bytes, size_t b_l) {
+bool station_r_tx(const uint8_t *bytes, size_t b_l, void *context) {
+    UNUSED_PARAM(context);
     for (unsigned int i = 0; i < b_l; i++) {
         lp_transmit(r_tx_pipe, bytes[i]);
     }
@@ -118,8 +120,8 @@ void createLinksAndReceiveThreads(lp_args_t *c_tx_args, lp_args_t *r_tx_args, De
     lp_init(c_tx_pipe, c_tx_args);
     lp_init(r_tx_pipe, r_tx_args);
 
-    TEST_ASSERT_EQUAL(DC_OK, dcPthreadsInit(station_c, &station_c_tx));
-    TEST_ASSERT_EQUAL(DC_OK, dcPthreadsInit(station_r, &station_r_tx));
+    TEST_ASSERT_EQUAL(DC_OK, dcPthreadsInit(station_c, &station_c_tx, (void*)1));
+    TEST_ASSERT_EQUAL(DC_OK, dcPthreadsInit(station_r, &station_r_tx, (void*)1));
 
     rx_set_t *c = malloc(sizeof(rx_set_t)), *r = malloc(sizeof(rx_set_t));
     c->station = station_c; c->rx_pipe = r_tx_pipe; c->station_char = 'C';

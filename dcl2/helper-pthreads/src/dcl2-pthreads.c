@@ -66,7 +66,9 @@ DeadcomL2ThreadingMethods pthreadsDeadcom = {
 };
 
 
-DeadcomL2Result dcPthreadsInit(DeadcomL2 *deadcom, bool (*transmitBytes)(const uint8_t*, size_t)) {
+DeadcomL2Result dcPthreadsInit(DeadcomL2 *deadcom,
+                               bool (*transmitBytes)(const uint8_t*, size_t, void*),
+                               void *transmissionContext) {
     pthread_mutex_t *mutx = malloc(sizeof(pthread_mutex_t));
     pthread_cond_t  *cond = malloc(sizeof(pthread_cond_t));
     dcl2_pthread_cond_t *combined_cond = malloc(sizeof(dcl2_pthread_cond_t));
@@ -74,7 +76,8 @@ DeadcomL2Result dcPthreadsInit(DeadcomL2 *deadcom, bool (*transmitBytes)(const u
     combined_cond->mutx = mutx;
     combined_cond->cond = cond;
 
-    return dcInit(deadcom, mutx, combined_cond, &pthreadsDeadcom, transmitBytes);
+    return dcInit(deadcom, mutx, combined_cond, &pthreadsDeadcom, transmitBytes,
+                  transmissionContext);
 }
 
 

@@ -1,6 +1,6 @@
 DEFINE_FFF_GLOBALS;
 
-FAKE_VALUE_FUNC(bool, transmitBytes, const uint8_t*, size_t);
+FAKE_VALUE_FUNC(bool, transmitBytes, const uint8_t*, size_t, void*);
 FAKE_VALUE_FUNC(bool, mutexInit, void*);
 FAKE_VALUE_FUNC(bool, mutexLock, void*);
 FAKE_VALUE_FUNC(bool, mutexUnlock, void*);

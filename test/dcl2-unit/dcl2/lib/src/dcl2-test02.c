@@ -88,7 +88,7 @@ void test_PDInvalidParams() {
     uint8_t data[47] = {0};
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     TEST_ASSERT_EQUAL(DC_FAILURE, dcProcessData(NULL, data, 47));
@@ -113,7 +113,7 @@ void test_PDFailsOnYahdlcFailure() {
     }
     yahdlc_get_data_fake.custom_fake = &get_data_fake;
 
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     TEST_ASSERT_EQUAL(DC_FAILURE, dcProcessData(&d, data, sizeof(data)));
@@ -141,7 +141,7 @@ void test_PDProcessesWholeBuffer() {
     }
     yahdlc_get_data_fake.custom_fake = &get_data_fake;
 
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, data, sizeof(data)));
@@ -155,7 +155,7 @@ void test_PDProcessesWholeBuffer() {
 void test_PDProcessDataWhenDisconnected() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_data_frame;
@@ -172,7 +172,7 @@ void test_PDProcessDataWhenDisconnected() {
 void test_PDProcessAckWhenDisconnected() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_ack_frame;
@@ -189,7 +189,7 @@ void test_PDProcessAckWhenDisconnected() {
 void test_PDProcessNackWhenDisconnected() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_nack_frame;
@@ -206,14 +206,15 @@ void test_PDProcessNackWhenDisconnected() {
 void test_PDProcessConnWhenDisconnected() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
-    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len, void *context) {
         UNUSED_PARAM(len);
+        UNUSED_PARAM(context);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
         return true;
@@ -231,7 +232,7 @@ void test_PDProcessConnWhenDisconnected() {
 void test_PDProcessConnAckWhenDisconnected() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_connack_frame;
@@ -250,7 +251,7 @@ void test_PDProcessConnAckWhenDisconnected() {
 void test_PDProcessDataWhenConnecting() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_data_frame;
@@ -272,7 +273,7 @@ void test_PDProcessDataWhenConnecting() {
 void test_PDProcessAckWhenConnecting() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_ack_frame;
@@ -294,7 +295,7 @@ void test_PDProcessAckWhenConnecting() {
 void test_PDProcessNackWhenConnecting() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_nack_frame;
@@ -316,7 +317,7 @@ void test_PDProcessNackWhenConnecting() {
 void test_PDProcessConnWhenConnecting() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
@@ -324,8 +325,9 @@ void test_PDProcessConnWhenConnecting() {
 
     d.state = DC_CONNECTING;
 
-    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len, void *context) {
         UNUSED_PARAM(len);
+        UNUSED_PARAM(context);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
         return true;
@@ -346,7 +348,7 @@ void test_PDProcessConnWhenConnecting() {
 void test_PDProcessConnAckWhenConnecting() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_connack_frame;
@@ -369,7 +371,7 @@ void test_PDProcessConnAckWhenConnecting() {
 void test_PDProcessAckWhenConnected() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_ack_frame;
@@ -391,7 +393,7 @@ void test_PDProcessAckWhenConnected() {
 void test_PDProcessNackWhenConnected() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_nack_frame;
@@ -413,7 +415,7 @@ void test_PDProcessNackWhenConnected() {
 void test_PDProcessConnWhenConnected() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
@@ -422,8 +424,9 @@ void test_PDProcessConnWhenConnected() {
     d.state = DC_CONNECTED;
     d.send_number = 3;
 
-    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len, void *context) {
         UNUSED_PARAM(len);
+        UNUSED_PARAM(context);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
         return true;
@@ -444,7 +447,7 @@ void test_PDProcessConnWhenConnected() {
 void test_PDProcessConnAckWhenConnected() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_connack_frame;
@@ -465,7 +468,7 @@ void test_PDProcessConnAckWhenConnected() {
 void test_PDProcessAckWhenTransmitting() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_ack_frame;
@@ -486,7 +489,7 @@ void test_PDProcessAckWhenTransmitting() {
 void test_PDProcessNackWhenTransmitting() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_nack_frame;
@@ -507,7 +510,7 @@ void test_PDProcessNackWhenTransmitting() {
 void test_PDProcessConnWhenTransmitting() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
@@ -516,8 +519,9 @@ void test_PDProcessConnWhenTransmitting() {
     d.state = DC_TRANSMITTING;
     d.send_number = 3;
 
-    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len, void *context) {
         UNUSED_PARAM(len);
+        UNUSED_PARAM(context);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
         return true;
@@ -539,7 +543,7 @@ void test_PDProcessConnWhenTransmitting() {
 void test_PDProcessConnAckWhenTransmitting(){
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     yahdlc_get_data_fake.custom_fake = &get_data_fake_connack_frame;
@@ -561,7 +565,7 @@ void test_PDProcessConnAckWhenTransmitting(){
 void test_PDDataCorrectSeq() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
@@ -598,7 +602,7 @@ void test_PDDataCorrectSeq() {
 void test_PDDataAlreadySeenNotAcked() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
@@ -638,7 +642,7 @@ void test_PDDataAlreadySeenNotAcked() {
 void test_PDDataAlreadySeenAndAcked() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
@@ -654,8 +658,9 @@ void test_PDDataAlreadySeenAndAcked() {
         return src_len;
     }
 
-    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len, void *context) {
         UNUSED_PARAM(len);
+        UNUSED_PARAM(context);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_ACK, ((yahdlc_control_t*)data)->frame);
         TEST_ASSERT_EQUAL(0, ((yahdlc_control_t*)data)->recv_seq_no);
@@ -689,7 +694,7 @@ void test_PDDataReceiveWithoutAck() {
     uint8_t data1[] = {0, 1, 2, 3, 4, 5};
     uint8_t data2[] = {5, 6, 7};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
@@ -753,7 +758,7 @@ void test_PDDataReceiveWithoutAck() {
 void test_PDDataIncorrectSeq() {
     uint8_t dummy[] = {0};
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     int get_data_fake_data_frame(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,

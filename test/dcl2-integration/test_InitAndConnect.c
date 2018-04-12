@@ -15,14 +15,14 @@
 #define UNUSED_PARAM(x)  (void)(x);
 
 DEFINE_FFF_GLOBALS;
-FAKE_VALUE_FUNC(bool, dummyTransmitBytes, const uint8_t*, size_t);
+FAKE_VALUE_FUNC(bool, dummyTransmitBytes, const uint8_t*, size_t, void*);
 
 
 void test_InitializeDCL2Pthreads() {
     RESET_FAKE(dummyTransmitBytes);
     dummyTransmitBytes_fake.return_val = true;
     DeadcomL2 d;
-    TEST_ASSERT_EQUAL(DC_OK, dcPthreadsInit(&d, &dummyTransmitBytes));
+    TEST_ASSERT_EQUAL(DC_OK, dcPthreadsInit(&d, &dummyTransmitBytes, (void*)1));
 }
 
 

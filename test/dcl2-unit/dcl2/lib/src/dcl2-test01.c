@@ -27,7 +27,7 @@ void setUp(void) {
 
 void test_ValidInit() {
     DeadcomL2 d;
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, (void*)3);
 
     TEST_ASSERT_EQUAL(DC_OK, res);
     TEST_ASSERT_EQUAL(DC_DISCONNECTED, d.state);
@@ -35,6 +35,7 @@ void test_ValidInit() {
     TEST_ASSERT_EQUAL(&t, d.t);
     TEST_ASSERT_EQUAL(1, d.mutex_p);
     TEST_ASSERT_EQUAL(2, d.condvar_p);
+    TEST_ASSERT_EQUAL(3, d.transmission_context_p);
     TEST_ASSERT_EQUAL(1, mutexInit_fake.call_count);
     TEST_ASSERT_EQUAL(1, mutexInit_fake.arg0_val);
     TEST_ASSERT_EQUAL(1, condvarInit_fake.call_count);
@@ -43,7 +44,7 @@ void test_ValidInit() {
 
 
 void test_InvalidInit() {
-    DeadcomL2Result res = dcInit(NULL, NULL, NULL, NULL, NULL);
+    DeadcomL2Result res = dcInit(NULL, NULL, NULL, NULL, NULL, NULL);
     TEST_ASSERT_EQUAL(DC_FAILURE, res);
 }
 
@@ -76,17 +77,18 @@ void test_ValidConnection() {
     }
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
-    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len, void *context) {
         // this function should onle ever attempt to transmit fake frame generated above
         TEST_ASSERT_EQUAL(2, len);
         uint8_t fake_frame[] = {0x42, 0x47};
         TEST_ASSERT_EQUAL_MEMORY(fake_frame, data, 2);
+        TEST_ASSERT_EQUAL(3, context);
         return true;
     }
     transmitBytes_fake.custom_fake = &transmitBytes_fake_impl;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, (void*)3);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // The condvarWait should return `true`, thereby simulating reception of connection ack
@@ -116,7 +118,7 @@ void test_ConnectionNoResponse() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     bool condvarWait_fake_impl(void *condvar_p, uint32_t millis, bool *timed_out) {
@@ -148,7 +150,7 @@ void test_ConnectionNoOpWhenConnected() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // The condvarWait should return `true`, thereby simulating reception of connection ack
@@ -174,7 +176,7 @@ void test_ConnectionFailWhenAlreadyConnecting() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // Simulate DC_CONNECTING state
@@ -199,7 +201,7 @@ void test_disconnectWhenDisconnected() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // Attempt to disconnect already disconnected link
@@ -219,7 +221,7 @@ void test_disconnectWhenConnecting() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // Simulate connecting link
@@ -242,7 +244,7 @@ void test_disconnectWhenConnected() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // Simulate connected link
@@ -270,7 +272,7 @@ void test_SendMessageInvalidParams() {
     const uint8_t message[] = {0x42, 0x47};
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     res = dcSendMessage(NULL, message, sizeof(message));
@@ -309,7 +311,7 @@ void test_SendMessageInvalidState() {
     const uint8_t message[] = {0x42, 0x47};
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // Disconnected state
@@ -391,7 +393,7 @@ void test_SendMessageWithAcknowledgment() {
             condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
 
             // Initialize the lib
-            DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+            DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
             TEST_ASSERT_EQUAL(DC_OK, res);
 
             // Simulate connected state
@@ -465,7 +467,7 @@ void test_SendMessageWhenNacked() {
         condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
 
         // Initialize the lib
-        DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+        DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
         TEST_ASSERT_EQUAL(DC_OK, res);
 
         // Simulate connected state
@@ -536,7 +538,7 @@ void test_SendMessageWhenTimeout() {
         condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
 
         // Initialize the lib
-        DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+        DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
         TEST_ASSERT_EQUAL(DC_OK, res);
 
         // Simulate connected state
@@ -591,7 +593,7 @@ void test_SendMessageFailTooManyNacks() {
     condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // Simulate connected state
@@ -645,7 +647,7 @@ void test_SendMessageFailTooManyTimeouts() {
     condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // Simulate connected state
@@ -690,7 +692,7 @@ void test_SendMessageOtherStationDropsLink() {
     condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // Simulate connected state
@@ -715,7 +717,7 @@ void test_GetMessageLengthNoMessagePending() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     size_t msg_len;
@@ -732,7 +734,7 @@ void test_GetMessageLength() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     // Simulate that we've received a message
@@ -753,7 +755,7 @@ void test_GetMessageInvalidParams() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     uint8_t buffer[47];
@@ -771,7 +773,7 @@ void test_GetMessageNoMessagePending() {
     DeadcomL2 d;
 
     // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     uint8_t buffer[47];
@@ -795,11 +797,12 @@ void test_GetMessage() {
         yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
         // Initialize the lib
-        DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
+        DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
         TEST_ASSERT_EQUAL(DC_OK, res);
 
-        bool transmit_bytes_fake_impl(const uint8_t *data, size_t data_len) {
+        bool transmit_bytes_fake_impl(const uint8_t *data, size_t data_len, void *context) {
             UNUSED_PARAM(data_len);
+            UNUSED_PARAM(context);
             // Nothing but send confirmation should have been sent
             TEST_ASSERT_EQUAL(YAHDLC_FRAME_ACK, ((yahdlc_control_t*)data)->frame);
             TEST_ASSERT_EQUAL(recv, ((yahdlc_control_t*)data)->recv_seq_no);

@@ -133,13 +133,16 @@ typedef struct {
     DeadcomL2LastResponse last_response;
 
     // Function for transmitting outgoing bytes
-    bool (*transmitBytes)(const uint8_t*, size_t);
+    bool (*transmitBytes)(const uint8_t*, size_t, void*);
 
     // Pointer to mutex for locking this structure
     void *mutex_p;
 
     // Pointer to conditional variable to wait on
     void *condvar_p;
+
+    // Transmission context
+    void *transmission_context_p;
 
     // Threading methods
     DeadcomL2ThreadingMethods *t;
@@ -162,12 +165,18 @@ typedef struct {
  *                       transmitted. It returns true if the operation succeeded or false if it
  *                       failed. The library function invoking transmitBytes which has failed shall
  *                       do required cleanup and return DC_EXTMETHOD_FAILED.
+ *                       Parameters are:
+ *                         - const uint8_t* : the byte buffer to transmit
+ *                         - size_t         : size of that byte buffer
+ *                         - void*          : Transmission context
  *
  * @retval DC_OK  DeadCom Layer 2 object initialized successfully
  * @retval DC_FAILURE  Invalid parameters or external method has failed
  */
 DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *mutex_p, void *condvar_p,
-                       DeadcomL2ThreadingMethods *t, bool (*transmitBytes)(const uint8_t*, size_t));
+                       DeadcomL2ThreadingMethods *t,
+                       bool (*transmitBytes)(const uint8_t*, size_t, void*),
+                       void *transmitBytesContext);
 
 /**
  * Try to establish a connection.
