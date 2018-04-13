@@ -32,7 +32,10 @@ setup(
             name = 'dcl2._dcl2',
             language = 'c',
             sources = [
-                'dcl2/_dcl2.c'
+                'dcl2/_dcl2_module.c',
+                'dcl2/_dcl2_type.c',
+                'dcl2/_dcl2_type_methods.c',
+                'dcl2/_dcl2_bridgefunctions.c'
             ],
             extra_compile_args = [
                 '-I../lib/inc'
