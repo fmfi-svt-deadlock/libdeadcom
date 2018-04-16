@@ -13,7 +13,7 @@
 #include "dcl2.h"
 
 
-extern DeadcomL2ThreadingVMT pthreadsDeadcom;
+extern DeadcomL2ThreadingMethods pthreadsDeadcom;
 
 /**
  * @brief A condvar-mutex combo
@@ -37,13 +37,13 @@ typedef struct {
  *
  * All present params and return values are the same as `dcInit`
  */
-DeadcomL2Result dcPthreadsInit(DeadcomL2 *deadcom, void (*transmitBytes)(const uint8_t*, size_t));
+DeadcomL2Result dcPthreadsInit(DeadcomL2 *deadcom, bool (*transmitBytes)(const uint8_t*, size_t));
 
 
 /**
  * Free pthread objects in DeadCom link.
  *
- * This function deallocates all memory allocated by dcPthreadsInit on the givevn deadcom link.
+ * This function deallocates all memory allocated by dcPthreadsInit on the given deadcom link.
  */
 void dcPthreadsFree(DeadcomL2 *deadcom);
 

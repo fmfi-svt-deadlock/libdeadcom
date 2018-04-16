@@ -70,6 +70,13 @@ int get_data_fake_connack_frame(yahdlc_state_t *state, yahdlc_control_t *control
 void setUp(void) {
     FFF_FAKES_LIST(RESET_FAKE);
     FFF_RESET_HISTORY();
+    transmitBytes_fake.return_val =  true;
+    mutexInit_fake.return_val =  true;
+    mutexLock_fake.return_val =  true;
+    mutexUnlock_fake.return_val =  true;
+    condvarInit_fake.return_val =  true;
+    condvarWait_fake.return_val =  true;
+    condvarSignal_fake.return_val =  true;
 }
 
 /* == Generic processData tests ==================================================================*/
@@ -205,10 +212,11 @@ void test_PDProcessConnWhenDisconnected() {
     yahdlc_get_data_fake.custom_fake = &get_data_fake_conn_frame;
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
-    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
         UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
+        return true;
     }
     transmitBytes_fake.custom_fake = &transmitBytes_fake_impl;
 
@@ -316,10 +324,11 @@ void test_PDProcessConnWhenConnecting() {
 
     d.state = DC_CONNECTING;
 
-    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
         UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
+        return true;
     }
     transmitBytes_fake.custom_fake = &transmitBytes_fake_impl;
 
@@ -413,10 +422,11 @@ void test_PDProcessConnWhenConnected() {
     d.state = DC_CONNECTED;
     d.send_number = 3;
 
-    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
         UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
+        return true;
     }
     transmitBytes_fake.custom_fake = &transmitBytes_fake_impl;
 
@@ -506,10 +516,11 @@ void test_PDProcessConnWhenTransmitting() {
     d.state = DC_TRANSMITTING;
     d.send_number = 3;
 
-    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
         UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_CONN_ACK, ((yahdlc_control_t*)data)->frame);
+        return true;
     }
     transmitBytes_fake.custom_fake = &transmitBytes_fake_impl;
 
@@ -577,7 +588,9 @@ void test_PDDataCorrectSeq() {
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
     // A message should be waiting for us
-    TEST_ASSERT_EQUAL(6, dcGetReceivedMsgLen(&d));
+    size_t msg_size;
+    TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_size));
+    TEST_ASSERT_EQUAL(6, msg_size);
     TEST_ASSERT_EQUAL(DC_CONNECTED, d.state);
 }
 
@@ -615,7 +628,9 @@ void test_PDDataAlreadySeenNotAcked() {
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
     // A message should still be waiting for us
-    TEST_ASSERT_EQUAL(6, dcGetReceivedMsgLen(&d));
+    size_t msg_len;
+    TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_len));
+    TEST_ASSERT_EQUAL(6, msg_len);
     TEST_ASSERT_EQUAL(DC_CONNECTED, d.state);
 }
 
@@ -639,11 +654,12 @@ void test_PDDataAlreadySeenAndAcked() {
         return src_len;
     }
 
-    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
         UNUSED_PARAM(len);
         // We should have transmitted CONN_ACK frame as response
         TEST_ASSERT_EQUAL(YAHDLC_FRAME_ACK, ((yahdlc_control_t*)data)->frame);
         TEST_ASSERT_EQUAL(0, ((yahdlc_control_t*)data)->recv_seq_no);
+        return true;
     }
     transmitBytes_fake.custom_fake = &transmitBytes_fake_impl;
     yahdlc_get_data_fake.custom_fake = &get_data_fake_data_frame;
@@ -652,7 +668,7 @@ void test_PDDataAlreadySeenAndAcked() {
     d.state = DC_CONNECTED;
     d.recv_number = 1;
     d.extractionComplete = false;
-    d.extractionBufferSize = DC_E_NOMSG;
+    d.extractionBufferSize = 0;
 
     TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
     // We've received a retransmission of a frame we've already acked. That ack must've gotten lost.
@@ -661,7 +677,9 @@ void test_PDDataAlreadySeenAndAcked() {
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
     // No message should've appeared in the buffer
-    TEST_ASSERT_EQUAL(DC_E_NOMSG, dcGetReceivedMsgLen(&d));
+    size_t msg_len;
+    TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_len));
+    TEST_ASSERT_EQUAL(0, msg_len);
     TEST_ASSERT_EQUAL(DC_CONNECTED, d.state);
 }
 
@@ -696,12 +714,14 @@ void test_PDDataReceiveWithoutAck() {
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
     // A message should be waiting for us
-    TEST_ASSERT_EQUAL(6, dcGetReceivedMsgLen(&d));
+    size_t msg_len;
+    TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_len));
+    TEST_ASSERT_EQUAL(6, msg_len);
     TEST_ASSERT_EQUAL(DC_CONNECTED, d.state);
     TEST_ASSERT_EQUAL(1, d.recv_number);
 
-    FFF_FAKES_LIST(RESET_FAKE);
-    FFF_RESET_HISTORY();
+    // Reset fakes
+    setUp();
 
     int get_data_fake_data_frame2(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,
                                  size_t src_len, uint8_t* dest, size_t *dest_len) {
@@ -722,7 +742,8 @@ void test_PDDataReceiveWithoutAck() {
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
     // The original message should still be waiting for us
-    TEST_ASSERT_EQUAL(6, dcGetReceivedMsgLen(&d));
+    TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_len));
+    TEST_ASSERT_EQUAL(6, msg_len);
     TEST_ASSERT_EQUAL_MEMORY(data1, d.extractionBuffer, sizeof(data1));
     TEST_ASSERT_EQUAL(DC_CONNECTED, d.state);
     TEST_ASSERT_EQUAL(1, d.recv_number);
@@ -754,7 +775,7 @@ void test_PDDataIncorrectSeq() {
     d.state = DC_CONNECTED;
     d.recv_number = 1;
     d.extractionComplete = false;
-    d.extractionBufferSize = DC_E_NOMSG;
+    d.extractionBufferSize = 0;
 
     TEST_ASSERT_EQUAL(DC_OK, dcProcessData(&d, dummy, 1));
     // We've received an out-of-sequence frame, ignore it.
@@ -762,6 +783,8 @@ void test_PDDataIncorrectSeq() {
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
     // No message should've appeared in the buffer
-    TEST_ASSERT_EQUAL(DC_E_NOMSG, dcGetReceivedMsgLen(&d));
+    size_t msg_len;
+    TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_len));
+    TEST_ASSERT_EQUAL(0, msg_len);
     TEST_ASSERT_EQUAL(DC_CONNECTED, d.state);
 }

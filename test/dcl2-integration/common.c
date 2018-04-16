@@ -99,16 +99,18 @@ void* rx_handle_thread(void *p) {
     return NULL;
 }
 
-void station_c_tx(const uint8_t *bytes, size_t b_l) {
+bool station_c_tx(const uint8_t *bytes, size_t b_l) {
     for (unsigned int i = 0; i < b_l; i++) {
         lp_transmit(c_tx_pipe, bytes[i]);
     }
+    return true;
 }
 
-void station_r_tx(const uint8_t *bytes, size_t b_l) {
+bool station_r_tx(const uint8_t *bytes, size_t b_l) {
     for (unsigned int i = 0; i < b_l; i++) {
         lp_transmit(r_tx_pipe, bytes[i]);
     }
+    return true;
 }
 
 void createLinksAndReceiveThreads(lp_args_t *c_tx_args, lp_args_t *r_tx_args, DeadcomL2 *station_c,
@@ -224,8 +226,9 @@ static void* receiver_1000msg_thread(void *p) {
     UNUSED_PARAM(p);
     unsigned int r2 = 1;
     for (unsigned int i = 0; i < 1000; i++) {
-        int16_t msgLen;
-        while (DC_E_NOMSG == (msgLen = dcGetReceivedMsgLen(dr))) {
+        size_t msgLen;
+        dcGetReceivedMsg(dr, NULL, &msgLen);
+        while (msgLen == 0) {
             // Even though nanosleep should be a cancellation point according to POSIX,
             // on musl, attempting to cancel a nanosleep-ing and then join it will result in
             // join never returning (even though the sleeping loop stops executing).
@@ -238,11 +241,12 @@ static void* receiver_1000msg_thread(void *p) {
             nanosleep(&t, &t);
             pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
             pthread_testcancel();
+            dcGetReceivedMsg(dr, NULL, &msgLen);
         }
         THREADED_ASSERT(120 == msgLen);
         uint8_t rcvdMessage[msgLen];
-        THREADED_ASSERT(msgLen == dcGetReceivedMsg(dr, rcvdMessage));
-        for (int16_t j = 0; j < msgLen; j++) {
+        THREADED_ASSERT(DC_OK == dcGetReceivedMsg(dr, rcvdMessage, &msgLen));
+        for (size_t j = 0; j < msgLen; j++) {
             THREADED_ASSERT((rand_r(&r2) % 256) == rcvdMessage[j]);
         }
         pthread_testcancel();
@@ -293,8 +297,9 @@ static void* receiver_1msg_thread(void *p) {
     for (unsigned int i = 0; i < sizeof(message); i++) {
         message[i] = rand_r(&seed) % 256;
     }
-    int16_t msgLen;
-    while (DC_E_NOMSG == (msgLen = dcGetReceivedMsgLen(dr))) {
+    size_t msgLen;
+    dcGetReceivedMsg(dr, NULL, &msgLen);
+    while (msgLen == 0) {
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         struct timespec t;
         t.tv_sec = 0;
@@ -302,10 +307,11 @@ static void* receiver_1msg_thread(void *p) {
         nanosleep(&t, &t);
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         pthread_testcancel();
+        dcGetReceivedMsg(dr, NULL, &msgLen);
     }
     THREADED_ASSERT(sizeof(message) == msgLen);
     uint8_t rcvdMessage[msgLen];
-    THREADED_ASSERT(msgLen == dcGetReceivedMsg(dr, rcvdMessage));
+    THREADED_ASSERT(DC_OK == dcGetReceivedMsg(dr, rcvdMessage, &msgLen));
     THREADED_ASSERT(memcmp(message, rcvdMessage, sizeof(message)) == 0);
     THREAD_EXIT_OK();
 }

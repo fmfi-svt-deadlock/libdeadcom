@@ -1,12 +1,12 @@
 DEFINE_FFF_GLOBALS;
 
-FAKE_VOID_FUNC(transmitBytes, const uint8_t*, size_t);
-FAKE_VOID_FUNC(mutexInit, void*);
-FAKE_VOID_FUNC(mutexLock, void*);
-FAKE_VOID_FUNC(mutexUnlock, void*);
-FAKE_VOID_FUNC(condvarInit,  void*);
-FAKE_VALUE_FUNC(bool, condvarWait, void*, uint32_t);
-FAKE_VOID_FUNC(condvarSignal, void*);
+FAKE_VALUE_FUNC(bool, transmitBytes, const uint8_t*, size_t);
+FAKE_VALUE_FUNC(bool, mutexInit, void*);
+FAKE_VALUE_FUNC(bool, mutexLock, void*);
+FAKE_VALUE_FUNC(bool, mutexUnlock, void*);
+FAKE_VALUE_FUNC(bool, condvarInit,  void*);
+FAKE_VALUE_FUNC(bool, condvarWait, void*, uint32_t, bool*);
+FAKE_VALUE_FUNC(bool, condvarSignal, void*);
 FAKE_VALUE_FUNC(int, yahdlc_frame_data, yahdlc_control_t*, const uint8_t*, size_t, uint8_t*,
                 size_t*);
 FAKE_VALUE_FUNC(int, yahdlc_get_data, yahdlc_state_t*, yahdlc_control_t*, const uint8_t*, size_t,
@@ -24,7 +24,7 @@ FAKE_VALUE_FUNC(int, yahdlc_get_data, yahdlc_state_t*, yahdlc_control_t*, const 
     FAKE(yahdlc_get_data)
 
 
-DeadcomL2ThreadingVMT t = {
+DeadcomL2ThreadingMethods t = {
     &mutexInit,
     &mutexLock,
     &mutexUnlock,

@@ -50,33 +50,43 @@ typedef enum {
     DC_LINK_RESET
 } DeadcomL2Result;
 
-#define DC_E_NOMSG  -1
-#define DC_E_FAIL   -2
-
 
 /**
  * @brief Methods for operations on synchronization primitives
+ *
+ * These functions return boolean values:
+ *  - `true` if the operation succeeded
+ *  - `false` if the operation failed
+ *
+ * If this function returns `false`, the calling function from this library must do just basic
+ * necessary cleanup and abort itself with retcode DC_FAILURE.
+ * Note that one of these methods *may* be called again during the cleanup. Please ensure that
+ * they can handle such case.
+ * To signal the exact cause of failure (as opposed to binary failed/succeeded) the error can
+ * *for example* be stored in some variable of a struct pointed to by either mutex_p or condvar_p.
  */
 typedef struct {
-    // Initialize mutex object
-    void (*mutexInit)(void *mutex_p);
+    /**
+     * @brief Initialize the Mutex object
+     */
+    bool (*mutexInit)(void *mutex_p);
 
     // Lock the mutex
-    void (*mutexLock)(void *mutex_p);
+    bool (*mutexLock)(void *mutex_p);
 
     // Unlock the mutex
-    void (*mutexUnlock)(void *mutex_p);
+    bool (*mutexUnlock)(void *mutex_p);
 
     // Initialize conditional variable object
-    void (*condvarInit)(void *condvar_p);
+    bool (*condvarInit)(void *condvar_p);
 
     // Wait on conditional variable object with timeout
-    // returns true when there was no timeout
-    bool (*condvarWait)(void *condvar_p, uint32_t milliseconds);
+    // set `timed_out` to true when there was a timeout
+    bool (*condvarWait)(void *condvar_p, uint32_t milliseconds, bool *timed_out);
 
     // Signal conditional variable object
-    void (*condvarSignal)(void *condvar_p);
-} DeadcomL2ThreadingVMT;
+    bool (*condvarSignal)(void *condvar_p);
+} DeadcomL2ThreadingMethods;
 
 
 /**
@@ -123,7 +133,7 @@ typedef struct {
     DeadcomL2LastResponse last_response;
 
     // Function for transmitting outgoing bytes
-    void (*transmitBytes)(const uint8_t*, size_t);
+    bool (*transmitBytes)(const uint8_t*, size_t);
 
     // Pointer to mutex for locking this structure
     void *mutex_p;
@@ -132,7 +142,7 @@ typedef struct {
     void *condvar_p;
 
     // Threading methods
-    DeadcomL2ThreadingVMT *t;
+    DeadcomL2ThreadingMethods *t;
 } DeadcomL2;
 
 
@@ -149,13 +159,15 @@ typedef struct {
  * @param t  Threading VMT, methods that can operate on mutex and condvar
  * @param transmitBytes  A function this library will call when it wants to transmit some bytes.
  *                       This function should be blocking and return after all bytes were
- *                       transmitted.
+ *                       transmitted. It returns true if the operation succeeded or false if it
+ *                       failed. The library function invoking transmitBytes which has failed shall
+ *                       do required cleanup and return DC_EXTMETHOD_FAILED.
  *
  * @retval DC_OK  DeadCom Layer 2 object initialized successfully
- * @retval DC_FAILURE  Invalid parameters
+ * @retval DC_FAILURE  Invalid parameters or external method has failed
  */
 DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *mutex_p, void *condvar_p,
-                       DeadcomL2ThreadingVMT *t, void (*transmitBytes)(const uint8_t*, size_t));
+                       DeadcomL2ThreadingMethods *t, bool (*transmitBytes)(const uint8_t*, size_t));
 
 /**
  * Try to establish a connection.
@@ -173,7 +185,8 @@ DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *mutex_p, void *condvar_p,
  *                state.
  * @retval DC_NOT_CONNECTED  The other station has not responded to our request for link
  *                            establishment.
- * @retval DC_FAILURE  Invalid parameters or connection attempt already in progress
+ * @retval DC_FAILURE  Invalid parameters, connection attempt already in progress or external
+ *                     method has failed.
  */
 DeadcomL2Result dcConnect(DeadcomL2 *deadcom);
 
@@ -187,7 +200,8 @@ DeadcomL2Result dcConnect(DeadcomL2 *deadcom);
  *
  * @retval DC_OK  The link close operation will always succeed, independently of what the other
  *                station may think.
- * @retval DC_FAILURE  Attempted to disconnect currently connecting link or invalid parameters
+ * @retval DC_FAILURE  Attempted to disconnect currently connecting link, invalid parameters or
+ *                     external method has failed.
  */
 DeadcomL2Result dcDisconnect(DeadcomL2 *deadcom);
 
@@ -212,34 +226,9 @@ DeadcomL2Result dcDisconnect(DeadcomL2 *deadcom);
  * @retval  DC_NOT_CONNECTED  If the link is not in the connected state
  * @retval  DC_LINK_RESET  If the tranission has failed / receiving station failed to acknowledge
  *                         the frame and the link has been reset as the result.
- * @retval  DC_FAILURE  Incorrect parameters or message too long
+ * @retval  DC_FAILURE  Incorrect parameters, message too long or external method has failed.
  */
 DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, const uint8_t *message, size_t message_len);
-
-/**
- * Get received message length.
- *
- * This function returns the length of received message, if any.
- *
- * @param[in] deadcom  Instance of an open DeadCom link
- *
- * @return Length of the received message in bytes or
- *         DC_E_NOMSG if no message is waiting or
- *         DC_E_FAIL  if parameters are invalid
- *
- * @note   Since "dcGetReceivedMsg" and "dcGetReceivedMsgLen" are 2 different functions, one might
- *         expect that "Time of check to time of use" race condition might occur.
- *         This is only partialy true: if this function returns DC_E_NOMSG it means that there was
- *         no message present at the call time.
- *         However, by nature of this library, once dcGetReceivedMsgLen returns a valid number
- *         of bytes (and therefore a message is received and is pending to be picked up), no other
- *         message will be accepted and subsequent calls to dcGetReceivedMsg are guaranteed to:
- *           - Return the received message, with length as returned by this function
- *           - Return DC_E_NOMSG if link was reset in the meantime
- *         In particular, this means that after dcGetReceivedMsgLen returns a number of bytes,
- *         a buffer of that size is guaranteed to be sufficient to copy the received message.
- */
-int16_t dcGetReceivedMsgLen(DeadcomL2 *deadcom);
 
 /**
  * Get the received message.
@@ -250,15 +239,33 @@ int16_t dcGetReceivedMsgLen(DeadcomL2 *deadcom);
  * the link.
  *
  * @param[in] deadcom  Instance of an open DeadCom link
- * @param[out] buffer  Buffer the message will be stored in. It should be big enough to accomodate
- *                      the whole message. Use `dcGetReceivedMsgLen` to get length of the message
- *                      in the buffer.
+ * @param[out] buffer  Buffer the message will be stored in or NULL. It should be big enough to
+ *                     accomodate the whole message. To get required buffer size, call this
+ *                     function with this param set to NULL.
+ * @param[out] msg_len  Number of bytes that were copied to `buffer` (or would have been copied
+ *                      to `buffer` if it wasnt NULL). 0 if no message is pending.
  *
- * @retval integer    Length of the received message which was copied to the buffer,
- * @retval DC_E_NOMSG if no data were copied because no message was present
- * @retval DC_E_FAIL  if parameters are invalid
+ * @note   Since to get the message you may need to call this function twice (first time to get
+ *         the required buffer size, second time to actually copy the message), one might expect
+ *         "Time of check to time of use" race condition might occur.
+ *         This is only partialy true: if this function returns 0 as `msg_len` it means that there
+ *         was no message present at the call time and does not guarantee that next call will
+ *         copy 0 bytes.
+ *         However, by nature of this library, once this function returns a non-zero in `msg_len`
+ *         (thereby singnaling that a message is received and is pending to be picked up), no other
+ *         message will be accepted until this one is picked up. Pending message can be cleared only
+ *         by "picking it up" by calling this function with non-NULL buffer.
+ *         Therefore if a message is pending, subsequent calls to dcGetReceivedMsg are guaranteed
+ *         to:
+ *           - Either copy the whole message with length as returned by previous invocation of this
+ *             method, or
+ *           - Return DC_LINK_RESET if link became disconnected in the meantime
+ *
+ * @retval DC_OK  Operation succeeded
+ * @retval DC_LINK_RESET  Link is currently disconnected, no messages can be pending
+ * @retval DC_FAILURE  if parameters are invalid or external method has failed
  */
-int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer);
+DeadcomL2Result dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer, size_t *msg_len);
 
 /**
  * Process received data.
@@ -271,6 +278,9 @@ int16_t dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer);
  * @param[in] deadcom  Instance of an open DeadCom link
  * @param[in] data  Data that were just received
  * @param[in] len  Number of received bytes
+ *
+ * @retval DC_OK  Operation succeeded
+ * @retval DC_FAILURE  Invalid parameters or external method has failed
  */
 DeadcomL2Result dcProcessData(DeadcomL2 *deadcom, const uint8_t *data, size_t len);
 

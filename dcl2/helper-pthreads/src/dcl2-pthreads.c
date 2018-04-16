@@ -3,34 +3,38 @@
 #include "dcl2-pthreads.h"
 
 
-void dcl_pthreads_mutexInit(void *mutex_p) {
+bool dcl_pthreads_mutexInit(void *mutex_p) {
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init((pthread_mutex_t*) mutex_p, &attr);
+    return true;
 }
 
 
-void dcl_pthreads_mutexLock(void *mutex_p) {
+bool dcl_pthreads_mutexLock(void *mutex_p) {
     pthread_mutex_lock((pthread_mutex_t*) mutex_p);
+    return true;
 }
 
 
-void dcl_pthreads_mutexUnlock(void *mutex_p) {
+bool dcl_pthreads_mutexUnlock(void *mutex_p) {
     pthread_mutex_unlock((pthread_mutex_t*) mutex_p);
+    return true;
 }
 
 
-void dcl_pthreads_condvarInit(void *condvar_p) {
+bool dcl_pthreads_condvarInit(void *condvar_p) {
     dcl2_pthread_cond_t *c = (dcl2_pthread_cond_t*) condvar_p;
     pthread_condattr_t attr;
     pthread_condattr_init(&attr);
     pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
     pthread_cond_init(c->cond, &attr);
+    return true;
 }
 
 
-bool dcl_pthreads_condvarWait(void *condvar_p, uint32_t milliseconds) {
+bool dcl_pthreads_condvarWait(void *condvar_p, uint32_t milliseconds, bool *timed_out) {
     dcl2_pthread_cond_t *c = (dcl2_pthread_cond_t*) condvar_p;
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -40,17 +44,19 @@ bool dcl_pthreads_condvarWait(void *condvar_p, uint32_t milliseconds) {
     ts.tv_nsec %= 1000000000;
 
     int ret = pthread_cond_timedwait(c->cond, c->mutx, &ts);
-    return (ret != ETIMEDOUT);
+    *timed_out = (ret == ETIMEDOUT);
+    return true;
 }
 
 
-void dcl_pthreads_condvarSignal(void *condvar_p) {
+bool dcl_pthreads_condvarSignal(void *condvar_p) {
     dcl2_pthread_cond_t *c = (dcl2_pthread_cond_t*) condvar_p;
     pthread_cond_signal(c->cond);
+    return true;
 }
 
 
-DeadcomL2ThreadingVMT pthreadsDeadcom = {
+DeadcomL2ThreadingMethods pthreadsDeadcom = {
     .mutexInit     = &dcl_pthreads_mutexInit,
     .mutexLock     = &dcl_pthreads_mutexLock,
     .mutexUnlock   = &dcl_pthreads_mutexUnlock,
@@ -60,7 +66,7 @@ DeadcomL2ThreadingVMT pthreadsDeadcom = {
 };
 
 
-DeadcomL2Result dcPthreadsInit(DeadcomL2 *deadcom, void (*transmitBytes)(const uint8_t*, size_t)) {
+DeadcomL2Result dcPthreadsInit(DeadcomL2 *deadcom, bool (*transmitBytes)(const uint8_t*, size_t)) {
     pthread_mutex_t *mutx = malloc(sizeof(pthread_mutex_t));
     pthread_cond_t  *cond = malloc(sizeof(pthread_cond_t));
     dcl2_pthread_cond_t *combined_cond = malloc(sizeof(dcl2_pthread_cond_t));

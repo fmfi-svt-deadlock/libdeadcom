@@ -14,6 +14,13 @@
 void setUp(void) {
     FFF_FAKES_LIST(RESET_FAKE);
     FFF_RESET_HISTORY();
+    transmitBytes_fake.return_val =  true;
+    mutexInit_fake.return_val =  true;
+    mutexLock_fake.return_val =  true;
+    mutexUnlock_fake.return_val =  true;
+    condvarInit_fake.return_val =  true;
+    condvarWait_fake.return_val =  true;
+    condvarSignal_fake.return_val =  true;
 }
 
 /* == Library initialization =====================================================================*/
@@ -69,11 +76,12 @@ void test_ValidConnection() {
     }
     yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
-    void transmitBytes_fake_impl(const uint8_t *data, size_t len) {
+    bool transmitBytes_fake_impl(const uint8_t *data, size_t len) {
         // this function should onle ever attempt to transmit fake frame generated above
         TEST_ASSERT_EQUAL(2, len);
         uint8_t fake_frame[] = {0x42, 0x47};
         TEST_ASSERT_EQUAL_MEMORY(fake_frame, data, 2);
+        return true;
     }
     transmitBytes_fake.custom_fake = &transmitBytes_fake_impl;
 
@@ -111,8 +119,13 @@ void test_ConnectionNoResponse() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    // The condvarWait should return `false`, thereby simulating no connection request ack
-    SET_RETURN_SEQ(condvarWait, (bool[1]){false}, 1);
+    bool condvarWait_fake_impl(void *condvar_p, uint32_t millis, bool *timed_out) {
+        UNUSED_PARAM(condvar_p);
+        UNUSED_PARAM(millis);
+        *timed_out = true;
+        return true;
+    }
+    condvarWait_fake.custom_fake = &condvarWait_fake_impl;
     // Simulate connection attempt
     res = dcConnect(&d);
 
@@ -307,8 +320,8 @@ void test_SendMessageInvalidState() {
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
     TEST_ASSERT_EQUAL(0, transmitBytes_fake.call_count);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
+    // reset fakes
+    setUp();
 
     d.state = DC_CONNECTING;
     // Connecting state
@@ -319,8 +332,7 @@ void test_SendMessageInvalidState() {
     TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
     TEST_ASSERT_EQUAL(0, transmitBytes_fake.call_count);
 
-    RESET_FAKE(mutexLock);
-    RESET_FAKE(mutexUnlock);
+    setUp();
 
     d.state = DC_TRANSMITTING;
     // Connected but transmitting
@@ -339,14 +351,13 @@ void test_SendMessageWithAcknowledgment() {
     unsigned int sseq, rseq;
     for (sseq = 0; sseq <= 7; sseq++) {
         for (rseq = 0; rseq <= 7; rseq++) {
-            FFF_FAKES_LIST(RESET_FAKE);
-            FFF_RESET_HISTORY();
+            setUp();
 
             yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
             const uint8_t message[] = {0x42, 0x47};
 
-            bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+            bool condvarWait_fakeimpl(void* condvar, unsigned int timeout, bool *timed_out) {
                 UNUSED_PARAM(condvar);
                 UNUSED_PARAM(timeout);
                 // Fake implementation of condvarWait function.
@@ -374,6 +385,7 @@ void test_SendMessageWithAcknowledgment() {
 
                 // The other station acknowledged
                 d.last_response = DC_RESP_OK;
+                *timed_out = false;
                 return true;
             }
             condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
@@ -408,15 +420,14 @@ void test_SendMessageWhenNacked() {
 
     unsigned int nack_number;
     for (nack_number = 1; nack_number < DEADCOM_MAX_FAILURE_COUNT; nack_number++) {
-        FFF_FAKES_LIST(RESET_FAKE);
-        FFF_RESET_HISTORY();
+        setUp();
 
         yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
         const uint8_t message[] = {0x42, 0x47};
 
         unsigned int nacked_times = 0;
-        bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+        bool condvarWait_fakeimpl(void* condvar, unsigned int timeout, bool *timed_out) {
             UNUSED_PARAM(condvar);
             UNUSED_PARAM(timeout);
             // Fake implementation of condvarWait function.
@@ -448,6 +459,7 @@ void test_SendMessageWhenNacked() {
                 d.last_response = DC_RESP_REJECT;
                 nacked_times++;
             }
+            *timed_out = false;
             return true;
         }
         condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
@@ -478,15 +490,14 @@ void test_SendMessageWhenTimeout() {
 
     unsigned int timeout_number;
     for (timeout_number = 1; timeout_number < DEADCOM_MAX_FAILURE_COUNT; timeout_number++) {
-        FFF_FAKES_LIST(RESET_FAKE);
-        FFF_RESET_HISTORY();
+        setUp();
 
         yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
         const uint8_t message[] = {0x42, 0x47};
 
         unsigned int timeout_times = 0;
-        bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+        bool condvarWait_fakeimpl(void* condvar, unsigned int timeout, bool *timed_out) {
             UNUSED_PARAM(condvar);
             UNUSED_PARAM(timeout);
             // Fake implementation of condvarWait function.
@@ -514,11 +525,13 @@ void test_SendMessageWhenTimeout() {
 
             if (timeout_times == timeout_number) {
                 d.last_response = DC_RESP_OK;
+                *timed_out = false;
                 return true;
             } else {
                 timeout_times++;
             }
-            return false;
+            *timed_out = true;
+            return true;
         }
         condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
 
@@ -551,7 +564,7 @@ void test_SendMessageFailTooManyNacks() {
     const uint8_t message[] = {0x42, 0x47};
 
     unsigned int timeout_times = 0;
-    bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+    bool condvarWait_fakeimpl(void* condvar, unsigned int timeout, bool *timed_out) {
         UNUSED_PARAM(condvar);
         UNUSED_PARAM(timeout);
         // Fake implementation of condvarWait function.
@@ -572,6 +585,7 @@ void test_SendMessageFailTooManyNacks() {
             d.last_response = DC_RESP_REJECT;
             timeout_times++;
         }
+        *timed_out = false;
         return true;
     }
     condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
@@ -603,7 +617,7 @@ void test_SendMessageFailTooManyTimeouts() {
     const uint8_t message[] = {0x42, 0x47};
 
     unsigned int timeout_times = 0;
-    bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+    bool condvarWait_fakeimpl(void* condvar, unsigned int timeout, bool *timed_out) {
         UNUSED_PARAM(condvar);
         UNUSED_PARAM(timeout);
         // Fake implementation of condvarWait function.
@@ -620,11 +634,13 @@ void test_SendMessageFailTooManyTimeouts() {
             // At this point the send function should have given up and we shouldn't be here
             d.last_response = DC_RESP_OK;
             TEST_FAIL();
+            *timed_out = false;
             return true;
         } else {
             timeout_times++;
         }
-        return false;
+        *timed_out = true;
+        return true;
     }
     condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
 
@@ -654,7 +670,7 @@ void test_SendMessageOtherStationDropsLink() {
 
     const uint8_t message[] = {0x42, 0x47};
 
-    bool condvarWait_fakeimpl(void* condvar, unsigned int timeout) {
+    bool condvarWait_fakeimpl(void* condvar, unsigned int timeout, bool *timed_out) {
         UNUSED_PARAM(condvar);
         UNUSED_PARAM(timeout);
         // Fake implementation of condvarWait function.
@@ -668,6 +684,7 @@ void test_SendMessageOtherStationDropsLink() {
         TEST_ASSERT_EQUAL(DC_TRANSMITTING, d.state);
 
         d.last_response = DC_RESP_NOLINK;
+        *timed_out = false;
         return true;
     }
     condvarWait_fake.custom_fake = &condvarWait_fakeimpl;
@@ -693,10 +710,6 @@ void test_SendMessageOtherStationDropsLink() {
 
 /* == Getting previously received message ========================================================*/
 
-void test_GetMessageLengthInvalidParams() {
-    TEST_ASSERT_EQUAL(DC_E_FAIL, dcGetReceivedMsgLen(NULL));
-}
-
 
 void test_GetMessageLengthNoMessagePending() {
     DeadcomL2 d;
@@ -705,7 +718,9 @@ void test_GetMessageLengthNoMessagePending() {
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
     TEST_ASSERT_EQUAL(DC_OK, res);
 
-    TEST_ASSERT_EQUAL(DC_E_NOMSG, dcGetReceivedMsgLen(&d));
+    size_t msg_len;
+    TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_len));
+    TEST_ASSERT_EQUAL(0, msg_len);
 
     // Mutex should have been locked and unlocked
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
@@ -724,7 +739,9 @@ void test_GetMessageLength() {
     d.extractionBufferSize = 47;
     d.extractionComplete = true;
 
-    TEST_ASSERT_EQUAL(47, dcGetReceivedMsgLen(&d));
+    size_t msg_len;
+    TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_len));
+    TEST_ASSERT_EQUAL(47, msg_len);
 
     // Mutex should have been locked and unlocked
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
@@ -740,10 +757,13 @@ void test_GetMessageInvalidParams() {
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     uint8_t buffer[47];
+    size_t msg_len;
 
-    TEST_ASSERT_EQUAL(dcGetReceivedMsg(NULL, NULL), DC_E_FAIL);
-    TEST_ASSERT_EQUAL(dcGetReceivedMsg(&d, NULL), DC_E_FAIL);
-    TEST_ASSERT_EQUAL(dcGetReceivedMsg(NULL, buffer), DC_E_FAIL);
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(NULL, NULL, NULL), DC_FAILURE);
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(&d, NULL, NULL), DC_FAILURE);
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(NULL, buffer, NULL), DC_FAILURE);
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(NULL, NULL, &msg_len), DC_FAILURE);
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(NULL, buffer, &msg_len), DC_FAILURE);
 }
 
 
@@ -756,7 +776,9 @@ void test_GetMessageNoMessagePending() {
 
     uint8_t buffer[47];
 
-    TEST_ASSERT_EQUAL(dcGetReceivedMsg(&d, buffer), DC_E_NOMSG);
+    size_t msg_len;
+    TEST_ASSERT_EQUAL(dcGetReceivedMsg(&d, buffer, &msg_len), DC_OK);
+    TEST_ASSERT_EQUAL(0, msg_len);
 
     // Mutex should have been locked and unlocked
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
@@ -769,19 +791,19 @@ void test_GetMessage() {
 
     unsigned int recv;
     for (recv = 0; recv <= 7; recv++) {
-        FFF_FAKES_LIST(RESET_FAKE);
-        FFF_RESET_HISTORY();
+        setUp();
         yahdlc_frame_data_fake.custom_fake = &frame_data_fake_impl;
 
         // Initialize the lib
         DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes);
         TEST_ASSERT_EQUAL(DC_OK, res);
 
-        void transmit_bytes_fake_impl(const uint8_t *data, size_t data_len) {
+        bool transmit_bytes_fake_impl(const uint8_t *data, size_t data_len) {
             UNUSED_PARAM(data_len);
             // Nothing but send confirmation should have been sent
             TEST_ASSERT_EQUAL(YAHDLC_FRAME_ACK, ((yahdlc_control_t*)data)->frame);
             TEST_ASSERT_EQUAL(recv, ((yahdlc_control_t*)data)->recv_seq_no);
+            return true;
         }
         transmitBytes_fake.custom_fake = &transmit_bytes_fake_impl;
 
@@ -792,13 +814,14 @@ void test_GetMessage() {
         memcpy(d.extractionBuffer, orig_message, 2);
         d.recv_number = (recv+1)%8;
 
-        int16_t received_msg_size = dcGetReceivedMsgLen(&d);
+        size_t received_msg_size;
+        TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &received_msg_size));
         TEST_ASSERT_EQUAL(2, received_msg_size);
 
         uint8_t received_msg[received_msg_size];
-        int16_t copied_size = dcGetReceivedMsg(&d, received_msg);
+        TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, received_msg, &received_msg_size));
 
-        TEST_ASSERT_EQUAL(2, copied_size);
+        TEST_ASSERT_EQUAL(2, received_msg_size);
         TEST_ASSERT_EQUAL_MEMORY(d.extractionBuffer, orig_message, 2);
 
         // Mutex should have been locked and unlocked twice
