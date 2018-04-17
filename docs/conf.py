@@ -12,6 +12,21 @@ import recommonmark
 from recommonmark.transform import AutoStructify
 from recommonmark.parser import CommonMarkParser
 import sphinx_rtd_theme
+from unittest.mock import MagicMock
+
+# -- Path updates and native module mocks ---------------------------------
+
+sys.path.insert(0, '../dcl2/py3-bindings')
+
+class Mock(object):
+    def __init__(self, *args):
+        pass
+
+    def __getattr__(self, name):
+        return Mock
+
+for mod_name in ['dcl2._dcl2']:
+    sys.modules[mod_name] = Mock()
 
 # -- General configuration ------------------------------------------------
 
@@ -67,6 +82,8 @@ breathe_projects = {
 }
 
 breathe_default_project = "reader"
+
+autoclass_content = "both"
 
 # -- Options for HTML output ----------------------------------------------
 

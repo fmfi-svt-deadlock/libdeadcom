@@ -1,3 +1,8 @@
+/*
+ * Note! Documentation for this module is maintained manually in `docs/dcl2/py-api.rst`. Don't
+ * forget to update it when changing user-facing API!
+ */
+
 #include "Python.h"
 #include "dcl2.h"
 #include "_dcl2_bridgefunctions.h"

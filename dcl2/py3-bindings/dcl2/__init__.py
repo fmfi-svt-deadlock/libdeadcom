@@ -52,7 +52,13 @@ class DeadcomL2(PlainDeadcomL2):
         will read incoming bytes from the pipe and pass them to the library for processing.
         The `pipe` object must therefore work correctly in multithreaded environment.
 
-        Rest of API of user-facing API of this class is the same as PlainDeadcomL2.
+        For the rest of user-facing API, see documentation of the following functions of
+        `dcl2.PlainDeadcomL2`:
+
+          - `connect`
+          - `disconnect`
+          - `sendMessage`
+          - `getMessage`
         """
         self.mutex = None
         self.condvar = None
