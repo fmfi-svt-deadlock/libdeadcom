@@ -111,7 +111,7 @@ except:
     ret = NULL;
 finally:
     Py_DECREF(self);
-    Py_DECREF(data);
+    Py_XDECREF(data);
     Py_DECREF(args);
     return ret;
 }
@@ -197,6 +197,12 @@ static PyObject* method_processData(Dc_Py_ObjDeadcomL2 *self, PyObject *args) {
     if (py_size < 0) {
         PyErr_SetString(PyExc_TypeError, "size of passed bytes is negative");
         goto except;
+    }
+    if (py_size == 0) {
+        // dcl2 requires processing of non-zero bytes for processing. Let's make this a no-op
+        ret = Py_None;
+        Py_INCREF(ret);
+        goto finally;
     }
     size_t size = py_size;
     uint8_t *data_bytes = (uint8_t *) PyBytes_AsString(data);

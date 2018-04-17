@@ -25,7 +25,7 @@ PyMODINIT_FUNC PyInit__dcl2(void) {
     }
 
     Py_INCREF(&Dc_Py_TypeDeadcomL2);
-    PyModule_AddObject(module, "DeadcomL2", (PyObject *) &Dc_Py_TypeDeadcomL2);
+    PyModule_AddObject(module, "PlainDeadcomL2", (PyObject *) &Dc_Py_TypeDeadcomL2);
 
     return module;
 }
