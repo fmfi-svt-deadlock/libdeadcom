@@ -25,6 +25,7 @@ extern DeadcomL2ThreadingMethods pthreadsDeadcom;
 typedef struct {
     pthread_cond_t  *cond;
     pthread_mutex_t *mutx;
+    volatile bool wakeup_is_spurious;
 } dcl2_pthread_cond_t;
 
 

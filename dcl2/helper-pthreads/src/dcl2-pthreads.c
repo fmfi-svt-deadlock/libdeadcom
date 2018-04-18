@@ -30,6 +30,7 @@ bool dcl_pthreads_condvarInit(void *condvar_p) {
     pthread_condattr_init(&attr);
     pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
     pthread_cond_init(c->cond, &attr);
+    c->wakeup_is_spurious = true;
     return true;
 }
 
@@ -43,7 +44,16 @@ bool dcl_pthreads_condvarWait(void *condvar_p, uint32_t milliseconds, bool *time
     ts.tv_sec  += ts.tv_nsec / 1000000000;
     ts.tv_nsec %= 1000000000;
 
-    int ret = pthread_cond_timedwait(c->cond, c->mutx, &ts);
+    c->wakeup_is_spurious = true;
+    int ret;
+    while (c->wakeup_is_spurious) {
+        // And this is part of the reason why pthread_cond_timedwait takes absolute time as timeout
+        // value, random disgruntled stackoverflow commenter.
+        ret = pthread_cond_timedwait(c->cond, c->mutx, &ts);
+        if (ret == ETIMEDOUT) {
+            break;
+        }
+    }
     *timed_out = (ret == ETIMEDOUT);
     return true;
 }
@@ -51,6 +61,7 @@ bool dcl_pthreads_condvarWait(void *condvar_p, uint32_t milliseconds, bool *time
 
 bool dcl_pthreads_condvarSignal(void *condvar_p) {
     dcl2_pthread_cond_t *c = (dcl2_pthread_cond_t*) condvar_p;
+    c->wakeup_is_spurious = false;
     pthread_cond_signal(c->cond);
     return true;
 }
