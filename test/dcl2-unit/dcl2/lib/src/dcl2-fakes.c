@@ -7,6 +7,7 @@ FAKE_VALUE_FUNC(bool, mutexUnlock, void*);
 FAKE_VALUE_FUNC(bool, condvarInit,  void*);
 FAKE_VALUE_FUNC(bool, condvarWait, void*, uint32_t, bool*);
 FAKE_VALUE_FUNC(bool, condvarSignal, void*);
+FAKE_VOID_FUNC(yahdlc_reset_state, yahdlc_state_t*, size_t);
 FAKE_VALUE_FUNC(int, yahdlc_frame_data, yahdlc_control_t*, const uint8_t*, size_t, uint8_t*,
                 size_t*);
 FAKE_VALUE_FUNC(int, yahdlc_get_data, yahdlc_state_t*, yahdlc_control_t*, const uint8_t*, size_t,
@@ -20,6 +21,7 @@ FAKE_VALUE_FUNC(int, yahdlc_get_data, yahdlc_state_t*, yahdlc_control_t*, const 
     FAKE(condvarInit)               \
     FAKE(condvarWait)               \
     FAKE(condvarSignal)             \
+    FAKE(yahdlc_reset_state)        \
     FAKE(yahdlc_frame_data)         \
     FAKE(yahdlc_get_data)
 

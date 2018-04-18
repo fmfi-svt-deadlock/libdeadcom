@@ -207,13 +207,14 @@ uint8_t yahdlc_frame_control_type(yahdlc_control_t *control) {
 }
 
 
-void yahdlc_reset_state(yahdlc_state_t *state) {
+void yahdlc_reset_state(yahdlc_state_t *state, size_t max_frame_len) {
     state->fcs = FCS16_INIT_VALUE;
     state->start_index = state->end_index = -1;
     state->src_index = state->dest_index = 0;
     state->control_escape = 0;
     state->frame_byte_index = 0;
     state->frame_control = 0;
+    state->max_frame_len = max_frame_len;
 }
 
 
@@ -270,8 +271,17 @@ int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const uint
                 if (state->frame_byte_index == 1) {
                     // Control field is the second byte after the start flag sequence
                     state->frame_control = value;
-                } else if (state->src_index > (state->start_index + 2)) {
+                } else if (state->frame_byte_index > 1) {
                     // Start adding the data values after the Control field to the buffer
+                    if ((size_t)state->dest_index+1 >= state->max_frame_len) {
+                        // Maximum frame length hit. Discard what we've seen so far from the buffer
+                        // and reset internal state. Parsing will commence mid-frame, which will
+                        // be discarded since no start flag will be found
+                        *dest_len = i;
+                        ret = -EIO;
+                        yahdlc_reset_state(state, state->max_frame_len);
+                        return ret;
+                    }
                     dest[state->dest_index++] = value;
                 }
                 state->frame_byte_index++;
@@ -303,7 +313,7 @@ int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const uint
         }
 
         // Reset values for next frame
-        yahdlc_reset_state(state);
+        yahdlc_reset_state(state, state->max_frame_len);
     }
 
     return ret;

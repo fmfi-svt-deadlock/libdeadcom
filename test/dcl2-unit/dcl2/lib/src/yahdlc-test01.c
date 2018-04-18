@@ -55,7 +55,7 @@ void test_DataFrameControlField() {
     yahdlc_control_t control_send, control_recv;
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Run through the supported sequence numbers (3-bit)
     for (i = 0; i <= 7; i++) {
         for (j = 0; j <= 7; j++) {
@@ -93,7 +93,7 @@ void test_AckFrameControlField() {
     yahdlc_control_t control_send, control_recv;
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Run through the supported sequence numbers (3-bit)
     for (i = 0; i <= 7; i++) {
       // Initialize the control field structure with frame type and sequence number
@@ -126,7 +126,7 @@ void test_NackFrameControlField() {
     yahdlc_control_t control_send, control_recv;
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Run through the supported sequence numbers (3-bit)
     for (i = 0; i <= 7; i++) {
         // Initialize the control field structure with frame type and sequence number
@@ -159,7 +159,7 @@ void test_0To512BytesData() {
     uint8_t send_data[512] = {0}, frame_data[520], recv_data[520];
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Initialize data to be send with random values (up to 0x70 to keep below the values to be
     // escaped)
     for (i = 0; i < sizeof(send_data); i++) {
@@ -206,7 +206,7 @@ void test_5BytesFrame() {
     yahdlc_control_t control;
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Create an invalid frame with only one byte of FCS
     uint8_t recv_data[8], frame_data[] = { YAHDLC_FLAG_SEQUENCE,
                                           (uint8_t) YAHDLC_ALL_STATION_ADDR, 0x10, 0x33,
@@ -229,7 +229,7 @@ void test_EndFlagSequenceInNewBuffer() {
     size_t i, frame_length = 0, recv_length = 0;
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Initialize data to be send with random values (up to 0x70 to keep below the values to be escaped)
     for (i = 0; i < sizeof(send_data); i++) {
         send_data[i] = (uint8_t) (rand() % 0x70);
@@ -270,7 +270,7 @@ void test_FlagSequenceAndControlEscapeInData() {
                           frame_data[16], recv_data[16];
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Initialize control field structure and create frame
     control.frame = YAHDLC_FRAME_DATA;
     ret = yahdlc_frame_data(&control, send_data, sizeof(send_data), frame_data,
@@ -299,7 +299,7 @@ void test_getDataFromMultipleBuffers() {
     size_t i, frame_length = 0, recv_length = 0, buf_length = 16;
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Initialize data to be send with random values (up to 0x70 to keep below the values to be escaped)
     for (i = 0; i < sizeof(send_data); i++) {
         send_data[i] = (uint8_t) (rand() % 0x70);
@@ -345,7 +345,7 @@ void test_MultipleFramesWithSingleFlagSequence() {
     size_t i, frame_length = 0, recv_length = 0, frames = 10;
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Initialize data to be send with random values (up to 0x70 to keep below the values to be escaped)
     for (i = 0; i < sizeof(send_data); i++) {
         send_data[i] = (char) (rand() % 0x70);
@@ -398,7 +398,7 @@ void test_MultipleFramesWithDoubleFlagSequence() {
     size_t i, frame_length = 0, recv_length = 0, frames = 10;
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Initialize data to be send with random values (up to 0x70 to keep below the values to be escaped)
     for (i = 0; i < sizeof(send_data); i++) {
         send_data[i] = (char) (rand() % 0x70);
@@ -449,7 +449,7 @@ void test_FramesWithBitErrors() {
     uint8_t send_data[] = { 0x55 }, frame_data[8], recv_data[8];
     yahdlc_state_t state;
 
-    yahdlc_reset_state(&state);
+    yahdlc_reset_state(&state, 1024);
     // Run through the bytes in a frame with a single byte of data
     for (i = 0; i < (sizeof(send_data) + 6); i++) {
         // Initialize control field structure

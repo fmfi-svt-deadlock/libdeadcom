@@ -90,6 +90,7 @@ typedef struct {
     unsigned int frame_byte_index;
     ptrdiff_t dest_index;
     uint8_t frame_control;
+    size_t max_frame_len;
 } yahdlc_state_t;
 
 /**
@@ -102,9 +103,10 @@ typedef struct {
 uint16_t fcs16(uint16_t fcs, uint8_t value);
 
 /**
- * Resets values used in yahdlc_get_data function to keep track of received buffers
+ * Resets values used in yahdlc_get_data function to keep track of received buffers.
+ * Sets the new maximum frame length for frame decoding.
  */
-void yahdlc_reset_state(yahdlc_state_t *state);
+void yahdlc_reset_state(yahdlc_state_t *state, size_t max_frame_len);
 
 /**
  * Retrieves data from specified buffer containing the HDLC frame. Frames can be
@@ -114,13 +116,15 @@ void yahdlc_reset_state(yahdlc_state_t *state);
  * @param[out] control Control field structure with frame type and sequence number
  * @param[in] src Source buffer with frame
  * @param[in] src_len Source buffer length
- * @param[out] dest Destination buffer (should be able to contain max frame size)
+ * @param[out] dest Destination buffer (should be able to contain max frame size set in
+                    yahdlc_reset_state)
  * @param[out] dest_len Destination buffer length
  *
  * @retval >=0 Success (size of returned value should be discarded from source buffer)
  * @retval -EINVAL Invalid parameter
  * @retval -ENOMSG Invalid message
- * @retval -EIO Invalid FCS (size of dest_len should be discarded from source buffer)
+ * @retval -EIO Invalid FCS or maximum frame size exceeded (size of dest_len should be discarded
+ *              from source buffer)
  *
  */
 int yahdlc_get_data(yahdlc_state_t *state, yahdlc_control_t *control, const uint8_t *src,

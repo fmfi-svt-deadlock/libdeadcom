@@ -30,6 +30,7 @@ DeadcomL2Result dcInit(DeadcomL2 *deadcom, void *_mutex_p, void *_condvar_p,
     deadcom->condvar_p = _condvar_p;
     deadcom->t = _t;
     deadcom->transmission_context_p = transmissionContext;
+    yahdlc_reset_state(&(deadcom->yahdlc_state), DEADCOM_MAX_FRAME_LEN);
 
     // Initialize synchronization objects
     if (!deadcom->t->mutexInit(deadcom->mutex_p)) {return DC_FAILURE;}
