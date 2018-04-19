@@ -131,7 +131,7 @@ static PyObject* method_getMessage(Dc_Py_ObjDeadcomL2 *self) {
 
     size_t msg_len;
     switch (dcGetReceivedMsg(&(self->dcl2), NULL, &msg_len)) {
-        case DC_LINK_RESET:
+        case DC_NOT_CONNECTED:
             ret = Py_None;
             Py_INCREF(ret);
             goto finally;
@@ -155,7 +155,7 @@ static PyObject* method_getMessage(Dc_Py_ObjDeadcomL2 *self) {
         // goto except;
         uint8_t buf[msg_len];
         switch (dcGetReceivedMsg(&(self->dcl2), buf, &msg_len)) {
-            case DC_LINK_RESET:
+            case DC_NOT_CONNECTED:
                 // There was a message when we first checked, but the link was reset in the meantime
                 ret = Py_None;
                 Py_INCREF(ret);
