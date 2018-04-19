@@ -170,6 +170,7 @@ DCRCPStatus dcrcpDecode(DeadcomCRPM *crpm_out, const uint8_t *buf_in, size_t buf
     if (crpm_out == NULL || buf_in == NULL || buf_size == 0 || ctx == NULL) {
         return DCRCP_STATUS_INVALID_PARAM;
     }
+    memset(crpm_out, 0, sizeof(DeadcomCRPM));
 
     cn_cbor_errback err;
     cn_cbor *crpm = cn_cbor_decode(buf_in, buf_size, ctx, &err);
