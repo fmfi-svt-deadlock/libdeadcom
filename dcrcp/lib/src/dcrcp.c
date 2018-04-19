@@ -62,6 +62,15 @@ DCRCPStatus dcrcpEncode(const DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf
     CHECK_ERROR_ENCODER(crpm, err);
 
     switch(crpm_in->type) {
+        case DCRCP_CRPM_HEARTBEAT: {
+            cn_cbor *nil = ctx->calloc_func(ctx->context);
+            CHECK_ALLOC(nil);
+            nil->type = CN_CBOR_NULL;
+            if (!cn_cbor_mapput_int(crpm, DCRCP_CRPM_HEARTBEAT, nil, ctx, &err)) {
+                CHECK_ERROR_ENCODER(NULL, err);
+            }
+            break;
+        }
         case DCRCP_CRPM_SYS_QUERY_REQUEST: {
             cn_cbor *nil = ctx->calloc_func(ctx->context);
             CHECK_ALLOC(nil);
@@ -176,8 +185,11 @@ DCRCPStatus dcrcpDecode(DeadcomCRPM *crpm_out, const uint8_t *buf_in, size_t buf
 
     cn_cbor *payload;
 
-    if (NULL != (payload = cn_cbor_mapget_int(crpm, DCRCP_CRPM_SYS_QUERY_REQUEST))) {
+    if (NULL != (payload = cn_cbor_mapget_int(crpm, DCRCP_CRPM_HEARTBEAT))) {
+        // This CRPM has no payload
+        crpm_out->type = DCRCP_CRPM_HEARTBEAT;
 
+    } else if (NULL != (payload = cn_cbor_mapget_int(crpm, DCRCP_CRPM_SYS_QUERY_REQUEST))) {
         // This CRPM has no payload
         crpm_out->type = DCRCP_CRPM_SYS_QUERY_REQUEST;
 

@@ -9,6 +9,7 @@
 ; frame which is mapped by its Frame ID
 
 crpm = {
+    0 => heartbeat //
     1 => sysQueryRequest //
     2 => sysQueryResponse //
     3 => activateAuthMethod //
@@ -19,6 +20,27 @@ crpm = {
 
 ;;
 ;; End Root CRPM rule
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Heartbeat CRPM type
+;;
+
+; System query request.
+; CRPM Direction: Controller <-> Reader
+;
+; Any station may send this CRPM to check whether the other station is alive.
+; DCRCP is intended to be used over a reliable datagram connection (such as the
+; one provided by dcl2 library), where either the delivery succeeds (as confirmed
+; by acknowledgment on that layer) or fails, in which case, Application protocol
+; layer is signaled that the link was reset. Therefore, there is no need to
+; respond to this frame on application layer.
+
+heartbeat = nil
+
+;;
+;; End Heartbeat CRPM type
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 

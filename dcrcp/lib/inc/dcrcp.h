@@ -35,6 +35,7 @@
  * These must match Frame IDs defined in `docs/crpm/protocol.cddl`.
  */
 typedef enum {
+    DCRCP_CRPM_HEARTBEAT              = 0,
     DCRCP_CRPM_SYS_QUERY_REQUEST      = 1,
     DCRCP_CRPM_SYS_QUERY_RESPONSE     = 2,
     DCRCP_CRPM_ACTIVATE_AUTH_METHOD   = 3,

@@ -139,6 +139,12 @@ void run_test(DeadcomCRPM *crpm) {
 /**************************************************************************************************/
 
 
+void test_EncodeDecodeIdempotence_Heartbeat() {
+    DeadcomCRPM c; memset(&c, 0, sizeof(DeadcomCRPM));
+    c.type = DCRCP_CRPM_HEARTBEAT;
+    run_test(&c);
+}
+
 void test_EncodeDecodeIdempotence_SysQueryRequest() {
     DeadcomCRPM c; memset(&c, 0, sizeof(DeadcomCRPM));
     c.type = DCRCP_CRPM_SYS_QUERY_REQUEST;
