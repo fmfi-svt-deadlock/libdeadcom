@@ -271,7 +271,7 @@ DeadcomL2Result dcSendMessage(DeadcomL2 *deadcom, const uint8_t *message, size_t
  *           - Return DC_LINK_RESET if link became disconnected in the meantime
  *
  * @retval DC_OK  Operation succeeded
- * @retval DC_LINK_RESET  Link is currently disconnected, no messages can be pending
+ * @retval DC_NOT_CONNECTED  Link is currently disconnected, no messages can be pending
  * @retval DC_FAILURE  if parameters are invalid or external method has failed
  */
 DeadcomL2Result dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer, size_t *msg_len);

@@ -712,8 +712,7 @@ void test_SendMessageOtherStationDropsLink() {
 
 /* == Getting previously received message ========================================================*/
 
-
-void test_GetMessageLengthNoMessagePending() {
+void test_GetMessageDisconnectedLink() {
     DeadcomL2 d;
 
     // Initialize the lib
@@ -721,8 +720,7 @@ void test_GetMessageLengthNoMessagePending() {
     TEST_ASSERT_EQUAL(DC_OK, res);
 
     size_t msg_len;
-    TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_len));
-    TEST_ASSERT_EQUAL(0, msg_len);
+    TEST_ASSERT_EQUAL(DC_NOT_CONNECTED, dcGetReceivedMsg(&d, NULL, &msg_len));
 
     // Mutex should have been locked and unlocked
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
@@ -730,20 +728,17 @@ void test_GetMessageLengthNoMessagePending() {
 }
 
 
-void test_GetMessageLength() {
-    DeadcomL2 d;
+void test_GetMessageNoMessagePending() {
+    DeadcomL2 d = {};
 
     // Initialize the lib
     DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
     TEST_ASSERT_EQUAL(DC_OK, res);
-
-    // Simulate that we've received a message
-    d.extractionBufferSize = 47;
-    d.extractionComplete = true;
+    d.state = DC_CONNECTED;
 
     size_t msg_len;
     TEST_ASSERT_EQUAL(DC_OK, dcGetReceivedMsg(&d, NULL, &msg_len));
-    TEST_ASSERT_EQUAL(47, msg_len);
+    TEST_ASSERT_EQUAL(0, msg_len);
 
     // Mutex should have been locked and unlocked
     TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
@@ -769,27 +764,8 @@ void test_GetMessageInvalidParams() {
 }
 
 
-void test_GetMessageNoMessagePending() {
-    DeadcomL2 d;
-
-    // Initialize the lib
-    DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
-    TEST_ASSERT_EQUAL(DC_OK, res);
-
-    uint8_t buffer[47];
-
-    size_t msg_len;
-    TEST_ASSERT_EQUAL(dcGetReceivedMsg(&d, buffer, &msg_len), DC_OK);
-    TEST_ASSERT_EQUAL(0, msg_len);
-
-    // Mutex should have been locked and unlocked
-    TEST_ASSERT_EQUAL(1, mutexLock_fake.call_count);
-    TEST_ASSERT_EQUAL(1, mutexUnlock_fake.call_count);
-}
-
-
 void test_GetMessage() {
-    DeadcomL2 d;
+    DeadcomL2 d = {};
 
     unsigned int recv;
     for (recv = 0; recv <= 7; recv++) {
@@ -799,6 +775,7 @@ void test_GetMessage() {
         // Initialize the lib
         DeadcomL2Result res = dcInit(&d, (void*)1, (void*)2, &t, &transmitBytes, NULL);
         TEST_ASSERT_EQUAL(DC_OK, res);
+        d.state = DC_CONNECTED;
 
         bool transmit_bytes_fake_impl(const uint8_t *data, size_t data_len, void *context) {
             UNUSED_PARAM(data_len);

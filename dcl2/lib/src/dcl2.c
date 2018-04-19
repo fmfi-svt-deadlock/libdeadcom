@@ -211,6 +211,12 @@ DeadcomL2Result dcGetReceivedMsg(DeadcomL2 *deadcom, uint8_t *buffer, size_t *ms
 
     if (!deadcom->t->mutexLock(deadcom->mutex_p)) {return DC_FAILURE;}
 
+    if (deadcom->state == DC_DISCONNECTED || deadcom->state == DC_CONNECTING) {
+        if (!deadcom->t->mutexUnlock(deadcom->mutex_p)) {return DC_FAILURE;}
+        *msg_len = 0;
+        return DC_NOT_CONNECTED;
+    }
+
     if (!deadcom->extractionComplete) {
         *msg_len = 0;
         if (!deadcom->t->mutexUnlock(deadcom->mutex_p)) {return DC_FAILURE;}
