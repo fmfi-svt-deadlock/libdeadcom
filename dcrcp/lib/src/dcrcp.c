@@ -100,8 +100,7 @@ DCRCPStatus dcrcpEncode(const DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf
             cn_cbor *ams = cn_cbor_array_create(ctx, &err);
             CHECK_ERROR_ENCODER(ams, err);
 
-            size_t i;
-            for (i = 0; i < crpm_in->data.authMethods.len; i++) {
+            for (size_t i = 0; i < crpm_in->data.authMethods.len; i++) {
                 CBOR_ARR_ADD_INT_CHECK(ams, crpm_in->data.authMethods.vals[i], ctx, err);
             }
 
@@ -132,8 +131,7 @@ DCRCPStatus dcrcpEncode(const DeadcomCRPM *crpm_in, uint8_t *buf_out, size_t buf
             cn_cbor *uids = cn_cbor_array_create(ctx, &err);
             CHECK_ERROR_ENCODER(uids, err);
 
-            size_t i;
-            for (i = 0; i < crpm_in->data.authMethod0UuidObtained.len; i++) {
+            for (size_t i = 0; i < crpm_in->data.authMethod0UuidObtained.len; i++) {
                 cn_cbor *elem = cn_cbor_data_create(
                     crpm_in->data.authMethod0UuidObtained.vals[i].uid,
                     crpm_in->data.authMethod0UuidObtained.vals[i].uid_len,
