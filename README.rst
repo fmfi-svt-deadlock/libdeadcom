@@ -43,6 +43,7 @@ use-case.
 
     dcl2/protocol
     dcl2/c-api
+    dcl2/py-api
 
 
 Deadcom Reader-Controller Protocol (``dcrcp``)

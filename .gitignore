@@ -2,3 +2,7 @@ build/
 docs/_venv
 docs/_build
 docs/_build_doxygen
+**/.venv/
+**/*.egg-info
+**/dist/
+**/__pycache__/

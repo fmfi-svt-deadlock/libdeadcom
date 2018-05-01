@@ -29,3 +29,11 @@ test-build-docs:
         - apk add --update doxygen make
         - pip install -r docs/requirements.txt
         - cd docs && make html
+
+test-dcl2-pyext:
+    stage: test
+    image: python:3-alpine3.7
+    script:
+        - apk add --update findutils musl-dev gcc make
+        - make build/libdcl2.so
+        - cd dcl2/py3-bindings && ./setup.py install

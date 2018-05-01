@@ -60,6 +60,23 @@ run-dcl2unit-tests: $(TEST_BUILD_PATHS) $(T_DCL2_UNIT_EXECS) $(T_DCL2_UNIT_RESUL
 
 
 ##############################################################################
+# Start of DeadCom Shared Object
+#
+
+DCL2_TARGET  =
+DCL2_CC      = $(DCL2_PTHREADS_TARGET)gcc
+DCL2_CFLAGS  = -I$(DCL2_INCLUDE) -O2 -fpic -shared -Wall -Wextra
+
+build/libdcl2.so: $(DCL2_SRC)
+	mkdir -p build/
+	$(DCL2_CC) $(DCL2_CFLAGS) $^ -o $@
+
+#
+# End of DeadCom Shared Object
+##############################################################################
+
+
+##############################################################################
 # Start of pthread DeadCom Shared Object
 #
 
