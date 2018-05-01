@@ -1,0 +1,12 @@
+[submodule "deps/Unity"]
+	path = deps/Unity
+	url = https://github.com/ThrowTheSwitch/Unity.git
+[submodule "deps/fff"]
+	path = deps/fff
+	url = https://github.com/meekrosoft/fff.git
+[submodule "deps/pipe"]
+	path = deps/pipe
+	url = https://github.com/cgaebel/pipe.git
+[submodule "deps/cn-cbor"]
+	path = deps/cn-cbor
+	url = https://github.com/fmfi-svt-deadlock/cn-cbor.git

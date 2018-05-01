@@ -1,0 +1,45 @@
+stages:
+    - test
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+test-dcl2-unit:
+    stage: test
+    image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
+    script:
+        - make run-dcl2unit-tests
+
+test-dcl2-integration:
+    stage: test
+    image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
+    script:
+        - make run-dcl2intg-tests
+
+test-leakypipe-unit:
+    stage: test
+    image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
+    script:
+        - make run-lpunit-tests
+
+test-dcrcp-integration:
+    stage: test
+    image: registry.gitlab.com/project-deadlock/libdeadcom/deadcom-tester:latest
+    script:
+        - make run-dcrcpintg-tests
+
+test-build-docs:
+    stage: test
+    image: python:3-alpine3.7
+    script:
+        - apk add --update doxygen make
+        - pip install -r docs/requirements.txt
+        - cd docs && make html
+
+test-dcl2-pyext:
+    stage: test
+    image: python:3-alpine3.7
+    script:
+        - apk add --update findutils musl-dev gcc make
+        - make build/libdcl2.so
+        - cd dcl2/py3-bindings && ./setup.py install
