@@ -174,12 +174,65 @@ run-lpunit-tests: $(TEST_BUILD_PATHS) $(T_LPUNIT_EXECS) $(T_LPUNIT_RESULTS) prin
 # End of Unity rules for leaky-pipe Unit tests
 ##############################################################################
 
+
+##############################################################################
+# Start of DCRCP Shared Object
+#
+
+CN_CBOR_SOURCE  = deps/cn-cbor/src
+CN_CBOR_INCLUDE = deps/cn-cbor/include
+CN_CBOR_SRC     = $(shell find $(CN_CBOR_SOURCE) -type f -name '*.c')
+DCRCP_SOURCE    = dcrcp/lib/src
+DCRCP_INCLUDE   = dcrcp/lib/inc
+DCRCP_SRC       = $(shell find $(DCRCP_SOURCE) -type f -name '*.c')
+
+DCRCP_TARGET  =
+DCRCP_CC      = $(DCRCP_TARGET)gcc
+DCRCP_CFLAGS  = -I$(DCRCP_INCLUDE) -I$(CN_CBOR_INCLUDE) -fpic -shared -DUSE_CBOR_CONTEXT -Wall -Wextra
+
+build/dcrcp.so: $(DCRCP_SRC) $(CN_CBOR_SRC)
+	$(DCRCP_CC) $(DCRCP_CFLAGS) $^ -o $@
+
+#
+# End of Start of DCRCP Shared Object
+##############################################################################
+
+
+##############################################################################
+# Start of DCRCP Integration Tests
+#
+
+T_DCRCPINTG_SUB        = dcrcp-integration/
+T_DCRCPINTG_INCDIR     = $(UNITY) $(FFF) $(TEST_PATH)$(T_DCRCPINTG_SUB) $(DCRCP_INCLUDE) $(CN_CBOR_INCLUDE)
+T_DCRCPINTG_INCPARAMS  = $(foreach d, $(T_DCRCPINTG_INCDIR), -I$d)
+T_DCRCPINTG_CSRC       = $(shell find $(TEST_PATH)$(T_DCRCPINTG_SUB) -type f -regextype sed -name 'test*.c')
+
+$(TEST_BUILD)$(T_DCRCPINTG_SUB)%.out: build/dcrcp.so $(TEST_OBJS)$(T_DCRCPINTG_SUB)%.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCRCPINTG_SUB)%-runner.o
+	@echo 'Linking test $@'
+	@mkdir -p `dirname $@`
+	@$(TEST_LD) $(TEST_OBJS)$(T_DCRCPINTG_SUB)$*.o $(TEST_OBJS)unity.o $(TEST_OBJS)$(T_DCRCPINTG_SUB)$*-runner.o -o $@ $(TEST_LDFLAGS)
+
+T_DCRCPINTG_RESULTS = $(patsubst $(TEST_PATH)%.c,$(TEST_RESULTS)%.testresults,$(T_DCRCPINTG_CSRC))
+T_DCRCPINTG_EXECS = $(patsubst $(TEST_RESULTS)%.testresults,$(TEST_BUILD)%.out,$(T_DCRCPINTG_RESULTS))
+
+run-dcrcpintg-tests: TEST_CFLAGS += -I. $(T_DCRCPINTG_INCPARAMS) -DTEST -g -Wno-trampolines -DUSE_CBOR_CONTEXT
+run-dcrcpintg-tests: TEST_LDFLAGS = -L. -l:build/dcrcp.so
+run-dcrcpintg-tests: DCRCP_CFLAGS += -g
+# Disable valgrind. It causes General Protection Fault on `system(3)` invocation in musl on Alpine
+# TODO this should be investigated and reenabled
+run-dcrcpintg-tests: TEST_RUN_WRAPPER =
+run-dcrcpintg-tests: $(TEST_BUILD_PATHS) $(T_DCRCPINTG_EXECS) $(T_DCRCPINTG_RESULTS) print-summary
+
+#
+# End of DCRCP Integration Tests
+##############################################################################
+
 clean:
 	rm -rf build/
 
 clean-tests:
 	@rm -rf $(TEST_BUILD) $(TEST_OBJS) $(TEST_RESULTS) $(TEST_RUNNERS)
 
-test: run-dcl2unit-tests run-dcl2intg-tests run-lpunit-tests
+test: run-dcl2unit-tests run-dcl2intg-tests run-lpunit-tests run-dcrcpintg-tests
 	@ruby deps/Unity/auto/unity_test_summary.rb build/test/results/
 	@rm -rf build/test/results
