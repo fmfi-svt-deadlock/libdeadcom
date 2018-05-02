@@ -1,4 +1,5 @@
-# PROJECT MOVED
+PROJECT MOVED
+=============
 
 This repository is now hosted here: https://gitlab.com/project-deadlock/libdeadcom
 
